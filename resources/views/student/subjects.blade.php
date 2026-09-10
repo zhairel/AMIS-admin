@@ -1,9 +1,8 @@
-@extends('student.layout', ['heading' => 'My Subjects'])
+<x-student-layout title="Subjects">
 
-@section('content')
 @php 
-    $nowManila = \Carbon\Carbon::now('Asia/Manila');
-    $todayName = $nowManila->format('l'); // 'Sunday', 'Monday', 'Tuesday', etc.
+    $nowRiyadh = \Carbon\Carbon::now('Asia/Riyadh');
+    $todayName = $nowRiyadh->format('l'); // 'Sunday', 'Monday', etc.
     
     // AMIS School Days: Sunday through Thursday
     $schoolDays = [
@@ -15,164 +14,280 @@
     ];
     $isSchoolDay = in_array($todayName, array_keys($schoolDays));
 
-    // Helper to check if a schedule string matches a day
+    // Helper to check if a schedule string matches today
     $matchesDay = function (?string $sched, string $dayName) use ($schoolDays): bool {
         if (empty($sched)) return false;
         $dayAbbrev = $schoolDays[$dayName] ?? substr($dayName, 0, 3);
-        
-        // If Sun-Thu or Sun–Thu, it matches any of the 5 school days
         if (str_contains($sched, 'Sun-Thu') || str_contains($sched, 'Sun–Thu')) {
             return in_array($dayName, ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday']);
         }
-        
         return str_contains($sched, $dayAbbrev);
     };
 
-    // Filter classes scheduled for today
-    $todaySubjects = $subjects->filter(function ($subj) use ($todayName, $matchesDay) {
-        return $matchesDay($subj->schedule, $todayName);
-    })->sortBy(function ($subj) {
-        $sched = trim((string) $subj->schedule);
-        if (empty($sched)) return PHP_INT_MAX;
-        preg_match('/(\d{1,2}:\d{2}\s*(?:AM|PM))/i', $sched, $matches);
-        if (!empty($matches[1])) {
-            $time = strtotime(date('Y-m-d') . ' ' . $matches[1]);
-            if ($time !== false) return $time;
+    // Helper to categorize subject & assign tone
+    $getSubjectMeta = function (?string $name) {
+        $lower = mb_strtolower((string) $name);
+        
+        if (str_contains($lower, 'arabic') || str_contains($lower, 'qur') || str_contains($lower, 'islamic') || str_contains($lower, 'shaf') || str_contains($lower, 'hadith') || str_contains($lower, 'fiqh') || str_contains($lower, 'sirah') || str_contains($lower, 'tajweed')) {
+            return [
+                'category' => 'islamic',
+                'category_label' => 'Islamic & Arabic',
+                'icon' => 'book-marked',
+                'tone_text' => '#047857',
+                'tone_bg' => '#ecfdf5',
+                'tone_accent' => '#059669',
+            ];
         }
-        return PHP_INT_MAX;
-    });
 
-    // Group subjects by day for Weekly Calendar
-    $days = [
-        'Sunday' => [],
-        'Monday' => [],
-        'Tuesday' => [],
-        'Wednesday' => [],
-        'Thursday' => [],
-    ];
-    $unscheduled = [];
-
-    foreach ($subjects as $subj) {
-        $matched = false;
-        foreach (array_keys($days) as $day) {
-            if ($matchesDay($subj->schedule, $day)) {
-                $days[$day][] = $subj;
-                $matched = true;
-            }
+        if (str_contains($lower, 'math') || str_contains($lower, 'science') || str_contains($lower, 'english') || str_contains($lower, 'filipino') || str_contains($lower, 'reading') || str_contains($lower, 'language') || str_contains($lower, 'writing') || str_contains($lower, 'araling') || str_contains($lower, 'makabansa') || str_contains($lower, 'ap')) {
+            return [
+                'category' => 'core',
+                'category_label' => 'Core Academic',
+                'icon' => str_contains($lower, 'math') ? 'binary' : (str_contains($lower, 'science') ? 'beaker' : 'book-open'),
+                'tone_text' => '#0369a1',
+                'tone_bg' => '#f0f9ff',
+                'tone_accent' => '#0284c7',
+            ];
         }
-        if (!$matched) {
-            $unscheduled[] = $subj;
-        }
-    }
 
-    $subjectIcon = function (?string $subjectName): string {
-        $subjectLower = mb_strtolower((string) $subjectName);
-        if (str_contains($subjectLower, 'math')) { return 'binary'; }
-        if (str_contains($subjectLower, 'science')) { return 'beaker'; }
-        if (str_contains($subjectLower, 'english') || str_contains($subjectLower, 'reading') || str_contains($subjectLower, 'language')) { return 'book-open'; }
-        if (str_contains($subjectLower, 'arabic') || str_contains($subjectLower, 'qur') || str_contains($subjectLower, 'islamic') || str_contains($subjectLower, 'shaf')) { return 'book'; }
-        if (str_contains($subjectLower, 'gmrc') || str_contains($subjectLower, 'values') || str_contains($subjectLower, 'esp')) { return 'heart-handshake'; }
-        if (str_contains($subjectLower, 'makabansa') || str_contains($subjectLower, 'araling') || str_contains($subjectLower, 'ap')) { return 'globe'; }
-        if (str_contains($subjectLower, 'computer') || str_contains($subjectLower, 'ict') || str_contains($subjectLower, 'tle')) { return 'monitor'; }
-        if (str_contains($subjectLower, 'pe') || str_contains($subjectLower, 'physical') || str_contains($subjectLower, 'mapeh')) { return 'activity'; }
-        if (str_contains($subjectLower, 'art') || str_contains($subjectLower, 'music')) { return 'palette'; }
-        return 'file-text';
+        if (str_contains($lower, 'values') || str_contains($lower, 'gmrc') || str_contains($lower, 'esp') || str_contains($lower, 'character')) {
+            return [
+                'category' => 'core',
+                'category_label' => 'Values Education',
+                'icon' => 'heart-handshake',
+                'tone_text' => '#4338ca',
+                'tone_bg' => '#eef2ff',
+                'tone_accent' => '#4f46e5',
+            ];
+        }
+
+        return [
+            'category' => 'specialized',
+            'category_label' => 'Specialized Area',
+            'icon' => str_contains($lower, 'comp') || str_contains($lower, 'ict') ? 'monitor' : (str_contains($lower, 'pe') || str_contains($lower, 'map') ? 'activity' : 'palette'),
+            'tone_text' => '#b45309',
+            'tone_bg' => '#fffbeb',
+            'tone_accent' => '#d97706',
+        ];
     };
 
-    $formatTeacherName = function ($name) {
-        $name = trim((string) $name) ?: 'To Be Assigned';
-        if ($name === 'To Be Assigned' || $name === '—') return $name;
+    $formatTeacher = function ($name) {
+        $name = trim((string) $name) ?: 'Assigned Faculty';
+        if ($name === 'Assigned Faculty' || $name === '—') return $name;
         $lower = strtolower($name);
-        if (str_starts_with($lower, 'teacher ') || str_starts_with($lower, 'alim ') || str_starts_with($lower, 'ustadz ')) {
+        if (str_starts_with($lower, 'teacher ') || str_starts_with($lower, 'alim ') || str_starts_with($lower, 'ustadz ') || str_starts_with($lower, 'ustadha ')) {
             return ucwords($lower);
         }
         return 'Teacher ' . ucwords($lower);
     };
+
+    $todayCount = $subjects->filter(fn($s) => $matchesDay($s->schedule, $todayName))->count();
 @endphp
 
-<div class="space-y-6" x-data="{ currentTab: '{{ $todaySubjects->isNotEmpty() ? 'today' : 'weekly' }}' }">
-    {{-- Header Panel --}}
-    <div class="student-panel">
-        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+<style>
+    /* Filter Segmented Control Buttons */
+    .subj-filter-group {
+        display: inline-flex;
+        background: #f1f5f9;
+        padding: 4px;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        gap: 4px;
+        flex-wrap: wrap;
+    }
+    .subj-tab-btn {
+        border: none !important;
+        background: transparent !important;
+        padding: 0.5rem 1rem !important;
+        border-radius: 8px !important;
+        font-size: 13.5px !important;
+        font-weight: 700 !important;
+        color: #64748b !important;
+        cursor: pointer !important;
+        transition: all 0.15s ease !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 0.35rem !important;
+        white-space: nowrap !important;
+    }
+    .subj-tab-btn:hover {
+        color: #0f172a !important;
+    }
+    .subj-tab-btn.active {
+        background: #ffffff !important;
+        color: #047857 !important;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+        font-weight: 800 !important;
+    }
+
+    /* Clean Card Hover */
+    .subject-card {
+        transition: all 0.2s ease !important;
+    }
+    .subject-card:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 8px 20px -2px rgba(15, 23, 42, 0.06) !important;
+        border-color: #cbd5e1 !important;
+    }
+</style>
+
+<div class="space-y-5" x-data="{ 
+    activeFilter: 'all', 
+    searchQuery: '',
+    todayDayName: '{{ $todayName }}'
+}">
+
+    <!-- 1. Hero Banner (Signature Dark Emerald) -->
+    <div style="background: linear-gradient(135deg, #064e3b 0%, #047857 55%, #0d9488 100%); color: #ffffff; padding: 1.25rem 1.75rem; border-radius: 18px; box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.06); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+        <div style="display: flex; align-items: center; gap: 0.85rem;">
+            <div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; backdrop-filter: blur(6px); border: 1.5px solid rgba(255,255,255,0.3); flex-shrink: 0;">
+                <i data-lucide="book-open" style="width: 22px; height: 22px; color: #ffffff;"></i>
+            </div>
             <div>
-                <span class="student-status-pill">
-                    <i data-lucide="book-open" class="h-3.5 w-3.5 mr-1"></i>
+                <h2 style="margin: 0; font-size: 1.25rem; font-weight: 900; letter-spacing: 0.01em; text-transform: uppercase; color: #ffffff; line-height: 1.2;">
                     Official Academic Curriculum
-                </span>
-                <h2 class="text-2xl font-black text-gray-900 mt-2.5" style="margin: 10px 0 4px;">My Registered Subjects</h2>
-                <p class="text-sm font-semibold text-gray-500">
-                    {{ $section?->name ?? 'Section' }} ({{ $section?->grade_level ?? $student->grade_level }}) · 
-                    {{ $section?->learning_mode ?? ($student?->applicant?->learning_mode ?? 'Flexible Online Learning') }}
-                    @if($section?->shift) · {{ $section->shift }} @endif
-                    · School Year {{ $student->school_year ?? '2026-2027' }}
+                </h2>
+                <p style="margin: 3px 0 0 0; font-size: 14px; color: #e6fffa; font-weight: 600;">
+                    Registered subjects, teacher directory, and timetables for School Year {{ $student?->school_year ?? '2026-2027' }}.
                 </p>
             </div>
-            <div class="flex items-center gap-3">
-                <div class="rounded-xl border border-gray-150 bg-gray-50 px-4 py-2.5 text-center shrink-0">
-                    <p class="text-[10px] font-extrabold uppercase tracking-wider text-gray-400">Total Subjects</p>
-                    <p class="mt-0.5 text-xl font-black text-gray-950">{{ $subjects->count() }}</p>
-                </div>
-            </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 0.65rem; flex-wrap: wrap;">
+            <span style="font-size: 13.5px; font-weight: 800; background: rgba(255,255,255,0.2); border: 1.5px solid rgba(255,255,255,0.3); color: #ffffff; padding: 0.35rem 0.85rem; border-radius: 999px;">
+                {{ $subjects->count() }} Subjects
+            </span>
+            <span style="font-size: 13.5px; font-weight: 800; background: rgba(255,255,255,0.15); border: 1.5px solid rgba(255,255,255,0.25); color: #ffffff; padding: 0.35rem 0.85rem; border-radius: 999px;">
+                {{ $section?->grade_level ?? ($student?->grade_level ?? 'Grade 1') }} — {{ $section?->name ?? 'Section' }}
+            </span>
         </div>
     </div>
 
-    {{-- Official Subject Cards Grid --}}
-    <div class="student-panel">
-        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-                <span class="student-status-pill">
-                    <i data-lucide="layers" class="h-3.5 w-3.5 mr-1"></i>
-                    Subject Directory & Assigned Faculty
-                </span>
-                <h2 class="text-xl font-black text-gray-900 mt-2" style="margin: 8px 0 4px;">Official Subject Loads</h2>
-                <p class="text-sm font-semibold text-gray-500">Official teacher assignments and Sunday–Thursday timetables.</p>
-            </div>
+    <!-- 2. Controls Bar (Segmented Filter Buttons + Search) -->
+    <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 0.85rem 1.25rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+        
+        <!-- Filter Buttons Group -->
+        <div class="subj-filter-group">
+            <button type="button"
+                    @click="activeFilter = 'all'"
+                    class="subj-tab-btn"
+                    :class="activeFilter === 'all' ? 'active' : ''">
+                <span>All Subjects</span>
+                <span style="font-size: 11px; padding: 2px 6px; border-radius: 6px; background: rgba(0,0,0,0.06);">{{ $subjects->count() }}</span>
+            </button>
+
+            <button type="button"
+                    @click="activeFilter = 'today'"
+                    class="subj-tab-btn"
+                    :class="activeFilter === 'today' ? 'active' : ''">
+                <i data-lucide="clock" style="width: 14px; height: 14px;"></i>
+                <span>Today's Classes ({{ substr($todayName, 0, 3) }})</span>
+                @if($todayCount > 0)
+                    <span style="font-size: 11px; padding: 2px 6px; border-radius: 6px; background: #ecfdf5; color: #047857; font-weight: 800;">{{ $todayCount }}</span>
+                @endif
+            </button>
+
+            <button type="button"
+                    @click="activeFilter = 'core'"
+                    class="subj-tab-btn"
+                    :class="activeFilter === 'core' ? 'active' : ''">
+                <span>Core Academics</span>
+            </button>
+
+            <button type="button"
+                    @click="activeFilter = 'islamic'"
+                    class="subj-tab-btn"
+                    :class="activeFilter === 'islamic' ? 'active' : ''">
+                <span>Islamic & Arabic</span>
+            </button>
         </div>
 
-        <div class="grid grid-cols-1 gap-5 lg:grid-cols-2 mt-5">
-            @forelse($subjects as $subject)
-                @php
-                    $icon = $subjectIcon($subject->subject_name);
-                    $meetings = $subject->meetings ?? collect();
-                    $materials = $subject->materials ?? collect();
-                    $tName = $formatTeacherName($subject->teacher_name);
-                    $tEmail = $subject->teacher_email;
-                    $tPhoto = $subject->teacher_photo ? asset($subject->teacher_photo) : null;
-                    $tInitials = collect(explode(' ', $subject->teacher_name))->map(fn($w) => strtoupper($w[0] ?? ''))->take(2)->join('');
+        <!-- Search Input -->
+        <div style="position: relative; min-width: 220px; flex-grow: 1; max-width: 320px;">
+            <i data-lucide="search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: #94a3b8; pointer-events: none;"></i>
+            <input type="text" 
+                   x-model="searchQuery" 
+                   placeholder="Search subjects or teachers..." 
+                   style="width: 100%; height: 38px; padding: 0.4rem 0.85rem 0.4rem 2.25rem; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 13.5px; font-weight: 600; color: #0f172a; outline: none; background: #f8fafc; transition: all 0.15s ease;"
+                   @focus="$el.style.borderColor = '#059669'; $el.style.background = '#ffffff';"
+                   @blur="$el.style.borderColor = '#cbd5e1'; $el.style.background = '#f8fafc';">
+            <button type="button" 
+                    x-show="searchQuery.length > 0" 
+                    @click="searchQuery = ''" 
+                    style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); border: none; background: transparent; cursor: pointer; color: #94a3b8;">
+                <i data-lucide="x" style="width: 14px; height: 14px;"></i>
+            </button>
+        </div>
+    </div>
 
-                    // Grade Status for this subject
+    <!-- 3. Subject Cards Grid -->
+    @if($subjects->isNotEmpty())
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            @foreach($subjects as $subject)
+                @php
+                    $meta = $getSubjectMeta($subject->subject_name);
+                    $tName = $formatTeacher($subject->teacher_name);
+                    $tEmail = $subject->teacher_email;
+                    $tInitials = collect(explode(' ', $subject->teacher_name))->map(fn($w) => strtoupper($w[0] ?? ''))->take(2)->join('');
+                    $sched = trim((string) $subject->schedule);
+                    $isToday = $matchesDay($sched, $todayName);
+                    
+                    // Grades for this subject
                     $subjectGrades = isset($grades) && isset($grades[$subject->id]) ? $grades[$subject->id] : collect();
                     $latestQuarterGrade = $subjectGrades->whereNotNull('quarter_grade')->last();
+
+                    $searchCorpus = strtolower(addslashes($subject->subject_name . ' ' . $tName . ' ' . $sched . ' ' . $meta['category_label']));
                 @endphp
-                <article class="student-subject-card" style="border: 1.5px solid #e2e8f0; border-radius: 18px; padding: 1.5rem; background: #ffffff; display: flex; flex-direction: column; justify-content: space-between; gap: 1.25rem; transition: all 0.2s ease;" onmouseover="this.style.borderColor='#10b981'; this.style.boxShadow='0 8px 20px rgba(16,185,129,0.06)'" onmouseout="this.style.borderColor='#e2e8f0'; this.style.boxShadow='none'">
+
+                <div x-show="(activeFilter === 'all' || 
+                             (activeFilter === 'today' && {{ $isToday ? 'true' : 'false' }}) || 
+                             activeFilter === '{{ $meta['category'] }}') && 
+                             (!searchQuery || '{{ $searchCorpus }}'.includes(searchQuery.toLowerCase().trim()))"
+                     class="subject-card"
+                     style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 1.35rem 1.5rem; box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03); display: flex; flex-direction: column; justify-content: space-between; gap: 1rem;">
+                    
+                    <!-- Top Line: Category Label on left, Schedule on right -->
                     <div>
-                        {{-- Top Bar: Icon, Subject Name, ID Pill --}}
-                        <div class="flex items-start justify-between gap-3">
-                            <div class="flex items-start gap-3">
-                                <div style="width: 44px; height: 44px; border-radius: 12px; background: #ecfdf5; display: flex; align-items: center; justify-content: center; color: #059669; flex-shrink: 0;">
-                                    <i data-lucide="{{ $icon }}" class="h-5 w-5"></i>
-                                </div>
-                                <div>
-                                    <h3 class="font-black text-gray-900 text-lg" style="margin:0; line-height: 1.2;">{{ $subject->subject_name }}</h3>
-                                    <span class="inline-block text-[11px] font-bold text-gray-500 mt-1">
-                                        {{ $section?->grade_level ?? 'Academic Subject' }}
-                                    </span>
-                                </div>
-                            </div>
-                            <span class="student-subject-code-pill">SUB-{{ str_pad($subject->id, 4, '0', STR_PAD_LEFT) }}</span>
+                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;">
+                            <span style="font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: {{ $meta['tone_text'] }};">
+                                {{ $meta['category_label'] }} · SUB-{{ str_pad($subject->id, 4, '0', STR_PAD_LEFT) }}
+                            </span>
+
+                            @if($sched)
+                                <span style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: 12.5px; font-weight: 700; color: #475569; background: #f8fafc; border: 1px solid #e2e8f0; padding: 0.25rem 0.65rem; border-radius: 8px;">
+                                    <i data-lucide="clock" style="width: 13px; height: 13px; color: #0d9488;"></i>
+                                    <span>{{ $sched }}</span>
+                                </span>
+                            @else
+                                <span style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: 12.5px; font-weight: 600; color: #94a3b8; background: #f8fafc; border: 1px solid #e2e8f0; padding: 0.25rem 0.65rem; border-radius: 8px;">
+                                    <i data-lucide="clock" style="width: 13px; height: 13px;"></i>
+                                    <span>To be announced</span>
+                                </span>
+                            @endif
                         </div>
 
-                        {{-- Teacher Info Card --}}
-                        <div style="margin-top: 1rem; background: #f8fafc; border: 1px solid #f1f5f9; border-radius: 14px; padding: 0.85rem 1rem; display: flex; align-items: center; gap: 0.75rem;">
-                            @if($tPhoto)
-                                <img src="{{ $tPhoto }}" alt="{{ $tName }}" style="width: 38px; height: 38px; border-radius: 50%; object-fit: cover; border: 1.5px solid #10b981; flex-shrink: 0;">
-                            @else
-                                <div style="width: 38px; height: 38px; border-radius: 50%; background: #047857; color: white; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 800; flex-shrink: 0;">
-                                    {{ $tInitials ?: 'TR' }}
-                                </div>
-                            @endif
+                        <!-- Main Row: Icon + Title + Grade Level -->
+                        <div style="display: flex; align-items: flex-start; gap: 1rem; margin-top: 0.85rem;">
+                            <div style="width: 44px; height: 44px; border-radius: 10px; background: {{ $meta['tone_bg'] }}; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: {{ $meta['tone_accent'] }};">
+                                <i data-lucide="{{ $meta['icon'] }}" style="width: 22px; height: 22px;"></i>
+                            </div>
+                            <div style="flex: 1; min-width: 0;">
+                                <h3 style="margin: 0; font-size: 17.5px; font-weight: 850; color: #0f172a; line-height: 1.35; letter-spacing: -0.01em;">
+                                    {{ $subject->subject_name }}
+                                </h3>
+                                <p style="margin: 0.25rem 0 0 0; font-size: 13px; font-weight: 600; color: #64748b;">
+                                    {{ $section?->grade_level ?? ($student?->grade_level ?? 'Basic Education') }} · {{ $section?->name ?? 'AMIS' }}
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Teacher Bar -->
+                        <div style="margin-top: 1rem; background: #f8fafc; border: 1px solid #f1f5f9; border-radius: 12px; padding: 0.75rem 0.95rem; display: flex; align-items: center; gap: 0.75rem;">
+                            <div style="width: 36px; height: 36px; border-radius: 50%; background: #047857; color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 800; flex-shrink: 0;">
+                                {{ $tInitials ?: 'TR' }}
+                            </div>
                             <div style="min-width: 0; flex: 1;">
-                                <div style="font-size: 0.85rem; font-weight: 800; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                <div style="font-size: 0.875rem; font-weight: 800; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                                     {{ $tName }}
                                 </div>
                                 <div style="font-size: 0.75rem; color: #64748b; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
@@ -180,201 +295,80 @@
                                 </div>
                             </div>
                         </div>
-
-                        {{-- Metadata Pills: Timetable & Standing --}}
-                        <div style="margin-top: 0.85rem; display: flex; flex-wrap: wrap; gap: 0.5rem;">
-                            {{-- Schedule Badge --}}
-                            <div style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.75rem; font-weight: 750; color: #0d9488; background: #f0fdfa; border: 1px solid #ccfbf1; padding: 0.3rem 0.65rem; border-radius: 8px;">
-                                <i data-lucide="clock" class="h-3.5 w-3.5"></i>
-                                <span>{{ $subject->schedule ?: 'Schedule to be announced' }}</span>
-                            </div>
-
-                            {{-- Academic Standing / Approved Grade --}}
-                            @if($latestQuarterGrade)
-                                <div style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.75rem; font-weight: 800; color: #047857; background: #ecfdf5; border: 1px solid #a7f3d0; padding: 0.3rem 0.65rem; border-radius: 8px;">
-                                    <i data-lucide="award" class="h-3.5 w-3.5"></i>
-                                    <span>Grade: {{ $latestQuarterGrade->quarter_grade }} ({{ $latestQuarterGrade->remarks }})</span>
-                                </div>
-                            @else
-                                <div style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.75rem; font-weight: 700; color: #64748b; background: #f8fafc; border: 1px solid #e2e8f0; padding: 0.3rem 0.65rem; border-radius: 8px;">
-                                    <i data-lucide="info" class="h-3.5 w-3.5"></i>
-                                    <span>Quarter 1 Ongoing</span>
-                                </div>
-                            @endif
-                        </div>
                     </div>
 
-                    {{-- Actions: Teams Channel, Meetings & Materials Preview --}}
-                    <div style="border-top: 1px solid #f1f5f9; padding-top: 1rem; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;">
-                        <div class="flex items-center gap-2 text-xs font-semibold text-gray-500">
-                            <span>{{ $meetings->count() }} meeting(s)</span>
-                            <span>·</span>
-                            <span>{{ $materials->count() }} material(s)</span>
+                    <!-- Card Footer: Status & Teams Action -->
+                    <div style="border-top: 1px solid #f1f5f9; padding-top: 0.85rem; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;">
+                        <div>
+                            @if($latestQuarterGrade)
+                                <span style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: 12px; font-weight: 800; color: #047857; background: #ecfdf5; border: 1px solid #a7f3d0; padding: 0.3rem 0.65rem; border-radius: 8px;">
+                                    <i data-lucide="award" style="width: 13px; height: 13px;"></i>
+                                    <span>Grade: {{ $latestQuarterGrade->quarter_grade }} ({{ $latestQuarterGrade->remarks }})</span>
+                                </span>
+                            @else
+                                <span style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: 12px; font-weight: 700; color: #64748b; background: #f8fafc; border: 1px solid #e2e8f0; padding: 0.3rem 0.65rem; border-radius: 8px;">
+                                    <i data-lucide="clock-3" style="width: 13px; height: 13px;"></i>
+                                    <span>Quarter 1 Ongoing</span>
+                                </span>
+                            @endif
                         </div>
 
                         <div>
-                            @if($subject->ms_channel_id && $section?->ms_team_url)
-                                <a href="{{ $section->ms_team_url }}" target="_blank" class="student-primary-btn" style="padding: 0.45rem 0.9rem; font-size: 0.78rem;">
-                                    <i data-lucide="video" class="w-3.5 h-3.5 mr-1"></i>
+                            @php
+                                $joinUrl = $subject->team_url ?? $section?->ms_team_url;
+                            @endphp
+                            @if($joinUrl)
+                                <a href="{{ $joinUrl }}" 
+                                   target="_blank" 
+                                   style="background: linear-gradient(135deg, #059669 0%, #10b981 100%); color: #ffffff; padding: 0.45rem 1rem; border-radius: 10px; font-weight: 800; font-size: 13px; display: inline-flex; align-items: center; gap: 0.4rem; text-decoration: none; box-shadow: 0 2px 6px rgba(5,150,105,0.2);">
+                                    <i data-lucide="video" style="width: 14px; height: 14px;"></i>
                                     <span>Join MS Teams</span>
                                 </a>
                             @else
-                                <span class="student-status-pill bg-gray-50 text-gray-400 border border-gray-150" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;">
-                                    <i data-lucide="clock" class="w-3 h-3 mr-1"></i> Class Active
+                                <span style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: 12px; font-weight: 700; color: #94a3b8; background: #f8fafc; border: 1px solid #e2e8f0; padding: 0.35rem 0.75rem; border-radius: 8px;">
+                                    <i data-lucide="video-off" style="width: 13px; height: 13px;"></i>
+                                    <span>Teams link pending</span>
                                 </span>
                             @endif
                         </div>
                     </div>
-                </article>
-            @empty
-                <div class="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-8 text-center text-sm font-semibold text-gray-400 col-span-2">
-                    No registered subjects found for this section.
                 </div>
-            @endforelse
-        </div>
-    </div>
-
-    {{-- Tabs Switcher: Today's Classes & Weekly Timetable --}}
-    <div class="flex flex-col gap-3 border-b border-gray-200 pb-3 sm:flex-row sm:items-center sm:justify-between">
-        <div class="inline-flex w-max max-w-full gap-1 rounded-xl bg-gray-150 p-1">
-            <button type="button" @click="currentTab = 'today'; $nextTick(() => refreshStudentIcons())" :class="currentTab === 'today' ? 'bg-white text-emerald-900 shadow-sm' : 'text-gray-500 hover:text-gray-855'" class="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-extrabold transition cursor-pointer">
-                <i data-lucide="clock" class="h-4 w-4"></i>
-                <span>Today's Classes ({{ $todayName }})</span>
-            </button>
-            <button type="button" @click="currentTab = 'weekly'; $nextTick(() => refreshStudentIcons())" :class="currentTab === 'weekly' ? 'bg-white text-emerald-900 shadow-sm' : 'text-gray-500 hover:text-gray-855'" class="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-extrabold transition cursor-pointer">
-                <i data-lucide="calendar-range" class="h-4 w-4"></i>
-                <span>Weekly Timetable (Sun–Thu)</span>
-            </button>
-        </div>
-    </div>
-
-    {{-- Tab Contents --}}
-    <div>
-        {{-- Today's Classes Tab --}}
-        <div x-show="currentTab === 'today'" class="space-y-4">
-            @if($todaySubjects->isNotEmpty())
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    @foreach($todaySubjects as $subject)
-                        @php 
-                            $icon = $subjectIcon($subject->subject_name);
-                            $tName = $formatTeacherName($subject->teacher_name);
-                        @endphp
-                        <div class="relative overflow-hidden student-subject-card flex flex-col justify-between gap-4 p-5 rounded-2xl border border-gray-200 bg-white shadow-xs">
-                            <div class="flex items-start gap-4">
-                                <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border bg-emerald-50 text-emerald-700 border-emerald-100 shadow-xs">
-                                    <i data-lucide="{{ $icon }}" class="h-6 w-6"></i>
-                                </span>
-                                <div class="space-y-1 overflow-hidden min-w-0 flex-1">
-                                    <h3 class="font-extrabold text-gray-900 text-base truncate" style="margin:0;">
-                                        {{ $subject->subject_name }}
-                                    </h3>
-                                    <p class="text-xs font-semibold text-gray-500">
-                                        Faculty: <strong class="text-gray-700 font-bold">{{ $tName }}</strong>
-                                    </p>
-                                    <div class="inline-flex items-center gap-1.5 text-xs font-extrabold mt-1 text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-lg border border-emerald-100">
-                                        <i data-lucide="clock" class="w-3.5 h-3.5 text-emerald-600"></i>
-                                        <span>{{ $subject->schedule }}</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="pt-3 border-t border-gray-100 flex items-center justify-between">
-                                <span class="text-[11px] font-bold text-gray-400">Class In Session Today</span>
-                                @if($subject->ms_channel_id && $section?->ms_team_url)
-                                    <a href="{{ $section->ms_team_url }}" target="_blank" class="student-primary-btn" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;">
-                                        Join Channel
-                                    </a>
-                                @endif
-                            </div>
-                        </div>
-                    @endforeach
-                </div>
-            @else
-                <div class="dash-empty border border-gray-150 rounded-xl bg-white p-8 text-center">
-                    <i data-lucide="calendar" class="mx-auto mb-2 text-gray-400 h-8 w-8"></i>
-                    @if(in_array($todayName, ['Friday', 'Saturday']))
-                        <p class="text-gray-600 font-bold text-base mt-2">Happy Weekend! 🎉</p>
-                        <p class="text-gray-400 font-medium text-xs mt-1">Official classes resume on Sunday.</p>
-                    @else
-                        <p class="text-gray-500 font-semibold mt-2">No classes scheduled for today ({{ $todayName }}).</p>
-                    @endif
-                </div>
-            @endif
+            @endforeach
         </div>
 
-        {{-- Weekly Calendar Tab (Sunday - Thursday) --}}
-        <div x-show="currentTab === 'weekly'" class="space-y-6">
-            <div class="grid grid-cols-1 gap-4">
-                @foreach($days as $dayName => $dayClasses)
-                    <div class="border border-gray-150 rounded-xl bg-white p-5 shadow-sm space-y-4">
-                        <div class="flex items-center justify-between border-b border-gray-100 pb-2.5">
-                            <h3 class="text-sm font-extrabold text-gray-900 uppercase tracking-wider flex items-center gap-2">
-                                <span class="h-2 w-2 rounded-full {{ $dayName === $todayName ? 'bg-emerald-600 animate-pulse' : 'bg-gray-300' }}"></span>
-                                {{ $dayName }}
-                                @if($dayName === $todayName)
-                                    <span class="ml-2 rounded-full bg-emerald-600 px-2 py-0.5 text-[9px] font-black uppercase text-white">Today</span>
-                                @endif
-                            </h3>
-                            <span class="text-xs font-bold text-gray-400">{{ count($dayClasses) }} Subject(s)</span>
-                        </div>
-                        @if(count($dayClasses) > 0)
-                            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                                @foreach($dayClasses as $subject)
-                                    @php 
-                                        $icon = $subjectIcon($subject->subject_name); 
-                                        $tName = $formatTeacherName($subject->teacher_name);
-                                    @endphp
-                                    <div class="p-4 rounded-xl border border-gray-100 bg-gray-50/30 hover:bg-gray-50/60 transition flex flex-col justify-between gap-3">
-                                        <div class="flex items-start gap-3 min-w-0">
-                                            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-100">
-                                                <i data-lucide="{{ $icon }}" class="h-4.5 w-4.5"></i>
-                                            </span>
-                                            <div class="min-w-0 flex-1">
-                                                <h4 class="text-xs font-extrabold text-gray-900 truncate" style="margin:0;">{{ $subject->subject_name }}</h4>
-                                                <p class="text-[10px] text-gray-500 mt-1 truncate">Teacher: {{ $tName }}</p>
-                                            </div>
-                                        </div>
-                                        <div class="pt-2 border-t border-gray-100 mt-1 flex items-center justify-between">
-                                            <span class="text-[10px] font-black text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
-                                                {{ $subject->schedule }}
-                                            </span>
-                                            @if($subject->ms_channel_id && $section?->ms_team_url)
-                                                <a href="{{ $section->ms_team_url }}" target="_blank" class="text-[10px] font-extrabold text-emerald-600 hover:text-emerald-700 flex items-center gap-0.5">
-                                                    Teams <i data-lucide="arrow-up-right" class="w-3 h-3"></i>
-                                                </a>
-                                            @endif
-                                        </div>
-                                    </div>
-                                @endforeach
-                            </div>
-                        @else
-                            <p class="text-xs font-semibold text-gray-400">No classes scheduled on {{ $dayName }}.</p>
-                        @endif
-                    </div>
-                @endforeach
-
-                @if(count($unscheduled) > 0)
-                    <div class="border border-gray-150 rounded-xl bg-gray-50/50 p-5 shadow-sm space-y-4">
-                        <div class="border-b border-gray-200 pb-2.5">
-                            <h3 class="text-sm font-extrabold text-gray-500 uppercase tracking-wider">Unscheduled / Asynchronous Subjects</h3>
-                        </div>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                            @foreach($unscheduled as $subject)
-                                @php $icon = $subjectIcon($subject->subject_name); @endphp
-                                <div class="p-4 rounded-xl border border-gray-150 bg-white shadow-xs flex items-center gap-3">
-                                    <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gray-50 text-gray-500 border border-gray-150">
-                                        <i data-lucide="{{ $icon }}" class="h-4.5 w-4.5"></i>
-                                    </span>
-                                    <div class="min-w-0">
-                                        <h4 class="text-xs font-extrabold text-gray-950 truncate" style="margin:0;">{{ $subject->subject_name }}</h4>
-                                        <p class="text-[10px] text-gray-400 mt-0.5">Teacher: {{ $formatTeacherName($subject->teacher_name) }}</p>
-                                    </div>
-                                </div>
-                            @endforeach
-                        </div>
-                    </div>
-                @endif
+        <!-- Empty Search Fallback -->
+        <div x-cloak
+             x-show="searchQuery.length > 0 && Array.from(document.querySelectorAll('.subject-card')).every(el => el.style.display === 'none')"
+             style="background: #ffffff; border: 1.5px dashed #cbd5e1; border-radius: 16px; padding: 3rem 2rem; text-align: center;">
+            <div style="width: 48px; height: 48px; border-radius: 50%; background: #ecfdf5; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 0.75rem;">
+                <i data-lucide="search-x" style="width: 24px; height: 24px; color: #059669;"></i>
             </div>
+            <h3 style="font-size: 17px; font-weight: 800; color: #0f172a; margin: 0 0 0.35rem;">No Matching Subjects</h3>
+            <p style="font-size: 14px; color: #64748b; margin: 0 auto; max-width: 420px;">
+                No subjects matched your search for "<span x-text="searchQuery" style="color: #0f172a; font-weight: 700;"></span>".
+            </p>
+            <button type="button" @click="searchQuery = ''; activeFilter = 'all'" 
+                    style="margin-top: 0.85rem; background: #047857; color: #ffffff; border: none; padding: 0.45rem 1.15rem; border-radius: 8px; font-size: 13.5px; font-weight: 750; cursor: pointer;">
+                Clear Search
+            </button>
         </div>
-    </div>
+    @else
+        <!-- Full Empty State -->
+        <div style="background: #ffffff; border: 1.5px dashed #cbd5e1; border-radius: 16px; padding: 3.5rem 2rem; text-align: center;">
+            <div style="width: 50px; height: 50px; border-radius: 50%; background: #ecfdf5; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 1rem;">
+                <i data-lucide="book-x" style="width: 26px; height: 26px; color: #059669;"></i>
+            </div>
+            <h3 style="font-size: 18px; font-weight: 850; color: #0f172a; margin: 0 0 0.35rem;">No Registered Subjects Found</h3>
+            <p style="font-size: 14.5px; color: #64748b; margin: 0 auto; max-width: 420px;">
+                Subject assignments for your section are currently being finalized by the academic team.
+            </p>
+        </div>
+    @endif
 </div>
-@endsection
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        if (window.lucide) window.lucide.createIcons();
+    });
+</script>
+</x-student-layout>
