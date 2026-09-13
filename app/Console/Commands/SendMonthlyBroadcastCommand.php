@@ -195,10 +195,10 @@ class SendMonthlyBroadcastCommand extends Command
             }
 
             $this->warn("\nPending inboxes to send: {$totalPending}");
-            $this->info("Batch limit for this run: {$batchLimit} emails (auto-resumes every 2 hours via cron)");
+            $this->info("Batch limit for this run: {$batchLimit} inboxes (up to " . ($batchLimit * 2) . " emails) (auto-resumes every 2 hours via cron)");
 
             if (!$this->option('force')) {
-                if (!$this->confirm("Proceed with sending the next batch of up to {$batchLimit} emails?")) {
+                if (!$this->confirm("Proceed with sending the next batch of up to {$batchLimit} inboxes?")) {
                     $this->warn('Operation cancelled.');
                     return Command::SUCCESS;
                 }
