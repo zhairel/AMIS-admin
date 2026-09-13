@@ -252,7 +252,9 @@ class SendMonthlyBroadcastCommand extends Command
                         // Handle transient socket connection limit (421) by purging connection and retrying once
                         if (str_contains(strtolower($errorMsg), '421') || str_contains(strtolower($errorMsg), 'too many messages')) {
                             try {
-                                app('mail.manager')->purge();
+                                foreach ($rotator->getMailerPool() as $m) {
+                                    try { app('mail.manager')->purge($m); } catch (\Throwable) {}
+                                }
                                 sleep(3);
                                 $sendRes = $rotator->sendMail($email, $ptcMail);
                                 MonthlyPaymentReminder::updateOrCreate(
@@ -332,7 +334,9 @@ class SendMonthlyBroadcastCommand extends Command
 
                         if (str_contains(strtolower($errorMsg), '421') || str_contains(strtolower($errorMsg), 'too many messages')) {
                             try {
-                                app('mail.manager')->purge();
+                                foreach ($rotator->getMailerPool() as $m) {
+                                    try { app('mail.manager')->purge($m); } catch (\Throwable) {}
+                                }
                                 sleep(3);
                                 $sendRes = $rotator->sendMail($email, $paymentMail);
                                 MonthlyPaymentReminder::updateOrCreate(
@@ -371,10 +375,12 @@ class SendMonthlyBroadcastCommand extends Command
                     }
                 }
 
-                // Keep socket connection fresh by purging every 20 emails
-                if ($sentCount > 0 && $sentCount % 20 === 0) {
+                // Keep socket connection fresh by purging every 15 emails
+                if ($sentCount > 0 && $sentCount % 15 === 0) {
                     try {
-                        app('mail.manager')->purge();
+                        foreach ($rotator->getMailerPool() as $m) {
+                            try { app('mail.manager')->purge($m); } catch (\Throwable) {}
+                        }
                     } catch (\Throwable) {}
                 }
 
