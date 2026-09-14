@@ -45,11 +45,7 @@ class StaffVerification extends Model
      */
     public function getVerificationUrlAttribute(): string
     {
-        $baseUrl = config('app.url');
-        if (empty($baseUrl) || str_contains($baseUrl, 'localhost') || str_contains($baseUrl, '127.0.0.1')) {
-            $baseUrl = 'https://amis.edu.ph';
-        }
-        return rtrim($baseUrl, '/') . '/verify/' . $this->slug;
+        return 'https://amis.edu.ph/verify/' . $this->slug;
     }
 
     /**
