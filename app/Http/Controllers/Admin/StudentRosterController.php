@@ -26,6 +26,25 @@ class StudentRosterController extends Controller
 
         $sectionId = $request->section_id;
         $oldSectionId = $student->studentSection->section_id ?? null;
+        $schoolYear = $student->school_year ?: config('app.school_year', '2026-2027');
+
+        // Enforce roster locking in backend: Check if current section is locked
+        if ($oldSectionId && \App\Models\RosterLock::isLocked('section', (string) $oldSectionId, $schoolYear)) {
+            $oldSec = Section::find($oldSectionId);
+            return back()->with('error', "Cannot modify section assignment: The roster for {$oldSec?->name} is finalized and locked. Authorized administrators must unlock the roster first.");
+        }
+
+        // Check if target new section is locked
+        if ($sectionId && \App\Models\RosterLock::isLocked('section', (string) $sectionId, $schoolYear)) {
+            $newSec = Section::find($sectionId);
+            return back()->with('error', "Cannot modify section assignment: The roster for {$newSec?->name} is finalized and locked. Authorized administrators must unlock the roster first.");
+        }
+
+        // Check if the student's Grade Level Face-to-Face roster is locked
+        $grade = $student->grade_level;
+        if ($grade && \App\Models\RosterLock::isLocked('f2f', (string) $grade, $schoolYear)) {
+            return back()->with('error', "Cannot modify section assignment: The Face-to-Face roster for {$grade} is finalized and locked. Authorized administrators must unlock the roster first.");
+        }
 
         DB::transaction(function () use ($student, $sectionId) {
             if (empty($sectionId)) {

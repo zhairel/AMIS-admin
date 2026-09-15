@@ -5,6 +5,7 @@
             'icon' => 'layout-dashboard', 'iconClass' => 'text-slate-600', 'headerClass' => 'text-slate-700', 'activeClass' => 'sidebar-link-active-slate', 'title' => 'Dashboard',
             'links' => [
                 ['Overview', 'layout-dashboard', route('admin.dashboard'), true],
+                ['Master Lists', 'clipboard-list', route('admin.master-lists.f2f.index'), false],
                 ['App Modules', 'layout-grid', route('admin.dashboard').'#modules', false],
                 ['Quick Actions', 'zap', route('admin.dashboard').'#quick-actions', false],
             ],
@@ -27,6 +28,7 @@
             'icon' => 'users', 'iconClass' => 'text-emerald-600', 'headerClass' => 'text-emerald-700', 'activeClass' => 'sidebar-link-active-emerald', 'title' => 'Student Records',
             'links' => [
                 ['Dashboard', 'layout-dashboard', route('admin.students.dashboard'), request()->routeIs('admin.students.dashboard')],
+                ['Master Lists', 'clipboard-list', route('admin.master-lists.f2f.index'), request()->routeIs('admin.master-lists.*')],
                 ['Student Records', 'user-check', route('admin.students.index'), (request()->routeIs('admin.students.index') || request()->routeIs('admin.students.show')) && !request()->routeIs('admin.students.families') && !request()->routeIs('admin.students.unassigned')],
                 ['Unassigned Students', 'user-x', route('admin.students.unassigned'), request()->routeIs('admin.students.unassigned')],
                 ['Archived Students', 'archive', route('admin.students.archive'), request()->routeIs('admin.students.archive')],
@@ -37,6 +39,14 @@
                 ['Audit Logs', 'clipboard-list', route('admin.students.audit-logs'), request()->routeIs('admin.students.audit-logs')],
                 ['Reports & Analytics', 'file-text', route('admin.students.reports'), request()->routeIs('admin.students.reports')],
                 ['Call Attendance', 'calendar-days', route('admin.students.attendance'), request()->routeIs('admin.students.attendance')],
+            ],
+        ],
+        [
+            'active' => request()->routeIs('admin.master-lists.*'),
+            'icon' => 'clipboard-list', 'iconClass' => 'text-emerald-600', 'headerClass' => 'text-emerald-700', 'activeClass' => 'sidebar-link-active-emerald', 'title' => 'Master Lists',
+            'links' => [
+                ['Face-to-Face Lists', 'users', route('admin.master-lists.f2f.index'), request()->routeIs('admin.master-lists.f2f.*')],
+                ['Section Lists', 'layers', route('admin.master-lists.sections.index'), request()->routeIs('admin.master-lists.sections.*')],
             ],
         ],
         [

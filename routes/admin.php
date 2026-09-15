@@ -22,6 +22,7 @@ use App\Http\Controllers\Admin\EnrollmentReportController;
 use App\Http\Controllers\Admin\FacultyAttendanceController;
 use App\Http\Controllers\Admin\Finance\FinanceController;
 use App\Http\Controllers\Admin\Finance\MonthlyPaymentReminderController;
+use App\Http\Controllers\Admin\MasterListController;
 use App\Http\Controllers\Admin\GoogleDriveAuthController;
 use App\Http\Controllers\Admin\RegistrationController;
 use App\Http\Controllers\Admin\RequirementController;
@@ -104,6 +105,17 @@ Route::name('admin.')->group(function () {
             Route::post('/{id}/read', [SystemNotificationController::class, 'markAsRead'])->name('read');
             Route::post('/mark-all-read', [SystemNotificationController::class, 'markAllAsRead'])->name('mark-all-read');
             Route::delete('/clear', [SystemNotificationController::class, 'clearAll'])->name('clear');
+        });
+
+        // Master Lists Workspace
+        Route::prefix('master-lists')->name('master-lists.')->group(function () {
+            Route::get('/', [MasterListController::class, 'index'])->name('index');
+            Route::get('/face-to-face', [MasterListController::class, 'f2fIndex'])->name('f2f.index');
+            Route::get('/face-to-face/{grade}', [MasterListController::class, 'f2fShow'])->name('f2f.show');
+            Route::get('/sections', [MasterListController::class, 'sectionIndex'])->name('sections.index');
+            Route::get('/sections/{section}', [MasterListController::class, 'sectionShow'])->name('sections.show');
+            Route::post('/lock', [MasterListController::class, 'lockRoster'])->name('lock');
+            Route::post('/unlock', [MasterListController::class, 'unlockRoster'])->name('unlock');
         });
 
         Route::prefix('attendance')->name('attendance.')->group(function () {
