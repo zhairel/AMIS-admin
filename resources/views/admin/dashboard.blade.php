@@ -49,7 +49,6 @@
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-            <x-dashboard.module-card :href="route('admin.master-lists.f2f.index')" icon="clipboard-list" name="Master Lists" owner="Registrar & Academic Office" summary="Official Face-to-Face & Section rosters, student counts, and roster locking" accent="emerald" shape="soft" />
             <x-dashboard.module-card :href="route('admin.students.dashboard')" icon="users" name="Student Records" owner="Registrar & Records Office" summary="Official student master list, profiles, ID cards, sectioning" accent="emerald" shape="arch" />
             <x-dashboard.module-card :href="route('admin.applications.dashboard')" icon="clipboard-check" name="Enrollment Applications" owner="Admissions & Registrar" summary="Online admissions, document review, requirements, approvals ({{ $totalApplications }} applied)" accent="violet" shape="soft" />
             @php
