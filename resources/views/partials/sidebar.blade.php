@@ -27,7 +27,8 @@
             'icon' => 'users', 'iconClass' => 'text-emerald-600', 'headerClass' => 'text-emerald-700', 'activeClass' => 'sidebar-link-active-emerald', 'title' => 'Student Records',
             'links' => [
                 ['Dashboard', 'layout-dashboard', route('admin.students.dashboard'), request()->routeIs('admin.students.dashboard')],
-                ['Student Records', 'user-check', route('admin.students.index'), (request()->routeIs('admin.students.index') || request()->routeIs('admin.students.show')) && !request()->routeIs('admin.students.families') && !request()->routeIs('admin.students.unassigned')],
+                ['Student Records', 'user-check', route('admin.students.index'), (request()->routeIs('admin.students.index') || request()->routeIs('admin.students.show')) && !request()->routeIs('admin.students.families') && !request()->routeIs('admin.students.unassigned') && !request()->routeIs('admin.students.temporary*')],
+                ['Temporary Records', 'user-clock', route('admin.students.temporary'), request()->routeIs('admin.students.temporary*')],
                 ['Unassigned Students', 'user-x', route('admin.students.unassigned'), request()->routeIs('admin.students.unassigned')],
                 ['Archived Students', 'archive', route('admin.students.archive'), request()->routeIs('admin.students.archive')],
                 ['Account Onboarding', 'user-cog', route('admin.students.accounts'), request()->routeIs('admin.students.accounts')],
@@ -196,7 +197,7 @@
         $workspaceSections = array_map(function ($section) {
             $section['links'] = array_values(array_filter($section['links'], function ($link) use ($section) {
                 return ($section['title'] === 'Applications' && $link[0] === 'Enrollment Applications')
-                    || ($section['title'] === 'Students' && ($link[0] === 'Student Records' || $link[0] === 'Reports & Analytics' || $link[0] === 'Call Attendance'))
+                    || ($section['title'] === 'Students' && ($link[0] === 'Student Records' || $link[0] === 'Temporary Records' || $link[0] === 'Reports & Analytics' || $link[0] === 'Call Attendance'))
                     || ($section['title'] === 'Support Center');
             }));
 

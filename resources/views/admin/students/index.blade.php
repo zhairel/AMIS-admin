@@ -42,6 +42,12 @@
                         <span>{{ request()->hasAny(['search', 'grade', 'type', 'gender', 'mode', 'ms_status']) ? 'Sync Filtered Licenses' : 'Sync Pending Licenses' }}</span>
                     </button>
                 </form>
+                <!-- Temporary Accounts Button -->
+                <a href="{{ route('admin.students.temporary') }}" class="inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-lg border border-amber-200 bg-amber-50 px-3.5 text-xs font-bold text-amber-800 shadow-sm transition hover:border-amber-300 hover:bg-amber-100" title="View temporary student records and pending requirements">
+                    <i data-lucide="user-clock" class="h-4 w-4 text-amber-600"></i>
+                    <span>Temporary Records</span>
+                    <span class="inline-flex items-center rounded-full bg-amber-200 px-2 py-0.5 text-[10px] font-black text-amber-900">{{ number_format($stats['temp_accounts'] ?? 0) }}</span>
+                </a>
                 <!-- Unassigned Students Button -->
                 <a href="{{ route('admin.students.unassigned') }}" class="inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-lg border border-rose-200 bg-rose-50 px-3.5 text-xs font-bold text-rose-800 shadow-sm transition hover:border-rose-300 hover:bg-rose-100" title="View students without an assigned section">
                     <i data-lucide="user-x" class="h-4 w-4 text-rose-600"></i>

@@ -126,6 +126,16 @@ class StudentController extends Controller
                 }
             }
 
+            // Exclude temporary accounts from standard student records (managed in dedicated Temporary Records page)
+            if (! $request->boolean('include_temp', false)) {
+                $query->whereDoesntHave('applicant', function ($q) {
+                    $q->where('last_name', 'like', '%[TEMP%')
+                      ->orWhere('first_name', 'like', '%[TEMP%');
+                })->whereDoesntHave('user', function ($q) {
+                    $q->where('name', 'like', '%[TEMP%');
+                });
+            }
+
             return $query;
         };
 
@@ -195,6 +205,14 @@ class StudentController extends Controller
             'active_ms' => Student::where('ms_license_active', true)->whereNotNull('ms_user_id')->count(),
             'no_account' => $noMsAccounts,
             'password_changed' => $passwordsChanged,
+            'temp_accounts' => Student::whereNull('deleted_at')->where(function ($q) {
+                $q->whereHas('applicant', function ($a) {
+                    $a->where('last_name', 'like', '%[TEMP%')
+                      ->orWhere('first_name', 'like', '%[TEMP%');
+                })->orWhereHas('user', function ($u) {
+                    $u->where('name', 'like', '%[TEMP%');
+                })->orWhere('school_email', 'like', '%temp%');
+            })->count(),
         ];
 
         $passwordByGrade = DB::table('students')

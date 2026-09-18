@@ -38,6 +38,7 @@ use App\Http\Controllers\Admin\StudentPrintController;
 use App\Http\Controllers\Admin\StudentArchiveController;
 use App\Http\Controllers\Admin\StudentRosterController;
 use App\Http\Controllers\Admin\StudentUnassignedController;
+use App\Http\Controllers\Admin\TemporaryStudentController;
 use App\Http\Controllers\Admin\System\SystemBackupController;
 use App\Http\Controllers\Admin\System\SystemDevOpsController;
 use App\Http\Controllers\Admin\System\SystemHealthController;
@@ -176,6 +177,10 @@ Route::name('admin.')->group(function () {
         });
 
         Route::get('/students', [StudentController::class, 'index'])->name('students.index');
+        Route::get('/students/temporary', [TemporaryStudentController::class, 'index'])->name('students.temporary');
+        Route::post('/students/temporary/{student}/toggle-tag', [TemporaryStudentController::class, 'toggleTag'])->name('students.temporary.toggle-tag');
+        Route::post('/students/temporary/bulk-toggle-tag', [TemporaryStudentController::class, 'bulkToggleTag'])->name('students.temporary.bulk-toggle-tag');
+        Route::get('/students/temporary/export-csv', [TemporaryStudentController::class, 'exportCsv'])->name('students.temporary.export-csv');
         Route::get('/students/unassigned', [StudentUnassignedController::class, 'index'])->name('students.unassigned');
         Route::post('/students/unassigned/assign', [StudentUnassignedController::class, 'assign'])->name('students.unassigned.assign');
         Route::post('/students/unassigned/bulk-assign', [StudentUnassignedController::class, 'bulkAssign'])->name('students.unassigned.bulk-assign');
