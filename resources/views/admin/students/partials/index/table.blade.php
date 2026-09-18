@@ -42,7 +42,7 @@
                         <span class="hidden print:inline">Grade</span>
                     </th>
                     <th class="w-48 px-5 py-4 font-bold">Section</th>
-                    <th class="w-36 px-5 py-4 text-right font-bold print:hidden">Action</th>
+                    <th class="w-44 px-5 py-4 text-right font-bold print:hidden">Action</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-slate-100 bg-white">
@@ -61,9 +61,9 @@
                         $gender = strtolower((string) ($student->applicant->gender ?? ''));
                         $genderLabel = $gender === 'male' ? 'MALE' : ($gender === 'female' ? 'FEMALE' : 'NOT SET');
                         
-                        $studentType = $student->applicant ? $student->applicant->student_type : 'New';
-                        $learningMode = $student->applicant ? $student->applicant->learning_mode : 'F2F';
-                        $lmLower = strtolower($learningMode);
+                        $studentType = $student->applicant ? ($student->applicant->student_type ?? 'New') : 'New';
+                        $learningMode = $student->applicant ? ($student->applicant->learning_mode ?? 'F2F') : 'F2F';
+                        $lmLower = strtolower((string) $learningMode);
                         $isF2f = str_contains($lmLower, 'face') || str_contains($lmLower, 'f2f');
                         
                         if ($isF2f) {
@@ -217,10 +217,10 @@
                          <td class="whitespace-nowrap px-5 py-4 text-right print:hidden">
                             @php
                                 $applicant = $student->applicant;
-                                $emergencyName = trim($applicant->emergency_name ?? $applicant->mother_name ?? $applicant->father_name ?? $applicant->guardian_name ?? 'PARENT / GUARDIAN');
-                                $emergencyRelationship = trim($applicant->emergency_relationship ?? ($applicant->emergency_name ? 'PARENT / GUARDIAN' : ($applicant->mother_name ? 'MOTHER' : ($applicant->father_name ? 'FATHER' : 'GUARDIAN'))));
-                                $emergencyPhone = trim($applicant->emergency_phone ?? $applicant->contact_number ?? $applicant->mother_contact ?? $applicant->father_contact ?? $applicant->guardian_contact ?? '-');
-                                $emergencyAddress = trim($applicant->emergency_address ?? $applicant->address ?? $applicant->home_address ?? $applicant->street_address ?? '-');
+                                $emergencyName = trim($applicant?->emergency_name ?? $applicant?->mother_name ?? $applicant?->father_name ?? $applicant?->guardian_name ?? 'PARENT / GUARDIAN');
+                                $emergencyRelationship = trim($applicant?->emergency_relationship ?? ($applicant?->emergency_name ? 'PARENT / GUARDIAN' : ($applicant?->mother_name ? 'MOTHER' : ($applicant?->father_name ? 'FATHER' : 'GUARDIAN'))));
+                                $emergencyPhone = trim($applicant?->emergency_phone ?? $applicant?->contact_number ?? $applicant?->mother_contact ?? $applicant?->father_contact ?? $applicant?->guardian_contact ?? '-');
+                                $emergencyAddress = trim($applicant?->emergency_address ?? $applicant?->address ?? $applicant?->home_address ?? $applicant?->street_address ?? '-');
 
                                 $gradeColors = [
                                     'kinder 1' => '#f59e0b', 'k1' => '#f59e0b',
@@ -264,11 +264,19 @@
                                     'grade_color' => $matchedColor,
                                     'qr_url' => 'https://quickchart.io/qr?text=' . urlencode('https://amis.edu.ph/v/' . $hash) . '&dark=000000&light=ffffff&margin=1&format=png&size=300',
                                     'signature_qr' => 'https://quickchart.io/qr?text=' . urlencode('https://amis.edu.ph/signature') . '&dark=000000&light=ffffff&margin=1&format=png&size=300',
-                                    'print_url' => route('admin.students.index', ['search' => $student->student_number, 'print_id' => 1]),
+                                    'print_url' => route(request()->routeIs('admin.students.temporary*') ? 'admin.students.temporary' : 'admin.students.index', ['search' => $student->student_number, 'print_id' => 1]),
                                     'edit_layout_url' => route('admin.students.id-editor', $student),
                                 ];
                             @endphp
                             <div class="flex items-center justify-end gap-1.5">
+                                @if (str_contains($student->applicant?->last_name ?? '', '[TEMP') || str_contains($student->applicant?->first_name ?? '', '[TEMP') || str_contains($student->user?->name ?? '', '[TEMP'))
+                                    <form method="POST" action="{{ route('admin.students.temporary.toggle-tag', $student) }}" onsubmit="return confirm('Remove temporary account tag [TEMP ACC] from this student and return to standard records?')" class="inline-block">
+                                        @csrf
+                                        <button type="submit" class="{{ $actionButtonClass }} hover:border-amber-300 hover:bg-amber-50 hover:text-amber-800 cursor-pointer" title="Remove Temporary Status [TEMP ACC]">
+                                            <i data-lucide="user-minus" class="h-4 w-4 text-amber-600"></i>
+                                        </button>
+                                    </form>
+                                @endif
                                 <button type="button" onclick="openStudentIdCardModal({{ json_encode($idCardData) }})" class="{{ $actionButtonClass }} cursor-pointer" title="Preview & Print Official Student ID Card (Dual-Sided PNG)">
                                     <i data-lucide="contact-round" class="h-4 w-4 text-emerald-600"></i>
                                 </button>
@@ -286,7 +294,7 @@
                                     'ms_user_id' => $student->ms_user_id,
                                     'resend_url' => route('admin.students.resend', $student),
                                     'sync_url' => route('admin.ms-sync.student', $student),
-                                    'print_url' => route('admin.students.index', ['search' => $student->student_number, 'print_credentials' => 1]),
+                                    'print_url' => route(request()->routeIs('admin.students.temporary*') ? 'admin.students.temporary' : 'admin.students.index', ['search' => $student->student_number, 'print_credentials' => 1]),
                                 ]) }})" class="{{ $actionButtonClass }} cursor-pointer" title="View Microsoft Account Credentials & Password">
                                     <i data-lucide="key-round" class="h-4 w-4 text-amber-600"></i>
                                 </button>

@@ -19,248 +19,220 @@ class TemporaryStudentController extends Controller
     {
         $gradeOrder = ['Kinder 1', 'Kinder 2', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
 
-        $filterType = $request->input('filter_type', 'tagged');
-        $gradeFilter = $request->input('grade');
-        $modeFilter = $request->input('mode');
-        $sectionFilter = $request->input('section');
-        $search = trim((string) $request->input('search', ''));
-        $perPage = min(max((int) $request->input('per_page', 25), 10), 100);
-
-        // Base query for temporary accounts
-        $query = Student::with(['applicant.user', 'applicant.payment', 'studentSection.section'])
-            ->whereNull('students.deleted_at');
-
-        // Apply filter tab
-        switch ($filterType) {
-            case 'tagged':
-            default:
-                $query->where(function ($q) {
-                    $q->whereHas('applicant', function ($a) {
-                        $a->where('last_name', 'like', '%[TEMP%')
-                          ->orWhere('first_name', 'like', '%[TEMP%');
-                    })->orWhereHas('user', function ($u) {
-                        $u->where('name', 'like', '%[TEMP%');
-                    })->orWhere('students.school_email', 'like', '%temp%');
-                });
-                break;
-
-            case 'missing_all':
-                $query->whereHas('applicant', function ($a) {
-                    $a->where(function ($d) {
-                        $d->whereNull('photo_2x2_url')->orWhere('photo_2x2_url', '');
-                    })->where(function ($d) {
-                        $d->whereNull('birth_cert_url')->orWhere('birth_cert_url', '');
-                    })->where(function ($d) {
-                        $d->whereNull('report_card_url')->orWhere('report_card_url', '');
-                    })->where(function ($d) {
-                        $d->whereNull('enrollment_fee_receipt_url')->orWhere('enrollment_fee_receipt_url', '');
-                    });
-                });
-                break;
-
-            case 'missing_payment':
-                $query->whereHas('applicant', function ($a) {
-                    $a->whereNull('enrollment_fee_receipt_url')->orWhere('enrollment_fee_receipt_url', '');
-                });
-                break;
-
-            case 'incomplete_docs':
-                $query->where(function ($mainQ) {
-                    $mainQ->whereHas('applicant', function ($a) {
-                        $a->whereNull('photo_2x2_url')->orWhere('photo_2x2_url', '')
-                          ->orWhereNull('birth_cert_url')->orWhere('birth_cert_url', '')
-                          ->orWhereNull('report_card_url')->orWhere('report_card_url', '')
-                          ->orWhereNull('enrollment_fee_receipt_url')->orWhere('enrollment_fee_receipt_url', '');
-                    });
-                });
-                break;
-
-            case 'all_temporary_pool':
-                $query->where(function ($mainQ) {
-                    $mainQ->whereHas('applicant', function ($a) {
-                        $a->where('last_name', 'like', '%[TEMP%')
-                          ->orWhere('first_name', 'like', '%[TEMP%')
-                          ->orWhereNull('photo_2x2_url')->orWhere('photo_2x2_url', '')
-                          ->orWhereNull('birth_cert_url')->orWhere('birth_cert_url', '')
-                          ->orWhereNull('report_card_url')->orWhere('report_card_url', '')
-                          ->orWhereNull('enrollment_fee_receipt_url')->orWhere('enrollment_fee_receipt_url', '');
-                    })->orWhereHas('user', function ($u) {
-                        $u->where('name', 'like', '%[TEMP%');
-                    });
-                });
-                break;
-        }
-
-        // Grade level filter
-        if (! empty($gradeFilter)) {
-            $query->where('students.grade_level', $gradeFilter);
-        }
-
-        // Learning Mode filter
-        if (! empty($modeFilter)) {
-            if ($modeFilter === 'f2f') {
-                $query->whereHas('applicant', function ($q) {
-                    $q->where('learning_mode', 'like', '%face%')
-                      ->orWhere('learning_mode', 'like', '%f2f%');
-                });
-            } elseif ($modeFilter === 'odl') {
-                $query->whereHas('applicant', function ($q) {
-                    $q->where('learning_mode', 'not like', '%face%')
-                      ->where('learning_mode', 'not like', '%f2f%');
-                });
-            }
-        }
-
-        // Section filter
-        if (! empty($sectionFilter)) {
-            if ($sectionFilter === 'unassigned') {
-                $query->where(function ($q) {
-                    $q->whereNull('students.section')
-                      ->orWhere('students.section', '');
-                });
-            } elseif ($sectionFilter === 'assigned') {
-                $query->whereNotNull('students.section')
-                      ->where('students.section', '!=', '');
-            } else {
-                $query->where('students.section', $sectionFilter);
-            }
-        }
-
-        // Search filter
-        if (! empty($search)) {
-            $query->where(function ($q) use ($search) {
-                $q->where('students.student_number', 'like', "%{$search}%")
-                  ->orWhere('students.school_email', 'like', "%{$search}%")
-                  ->orWhereHas('applicant', function ($a) use ($search) {
-                      $a->where('first_name', 'like', "%{$search}%")
-                        ->orWhere('middle_name', 'like', "%{$search}%")
-                        ->orWhere('last_name', 'like', "%{$search}%")
-                        ->orWhere('lrn', 'like', "%{$search}%")
-                        ->orWhere('parent_email', 'like', "%{$search}%")
-                        ->orWhere('parent_mobile', 'like', "%{$search}%")
-                        ->orWhere('father_first_name', 'like', "%{$search}%")
-                        ->orWhere('father_last_name', 'like', "%{$search}%")
-                        ->orWhere('mother_first_name', 'like', "%{$search}%")
-                        ->orWhere('mother_last_name', 'like', "%{$search}%");
-                  })->orWhereHas('user', function ($u) use ($search) {
-                      $u->where('name', 'like', "%{$search}%")
-                        ->orWhere('email', 'like', "%{$search}%");
-                  });
+        $applyFilters = function ($query) use ($request) {
+            // Temporary accounts filter
+            $query->where(function ($q) {
+                $q->whereHas('applicant', function ($a) {
+                    $a->where('last_name', 'like', '%[TEMP%')
+                      ->orWhere('first_name', 'like', '%[TEMP%');
+                })->orWhereHas('user', function ($u) {
+                    $u->where('name', 'like', '%[TEMP%');
+                })->orWhere('students.school_email', 'like', '%temp%');
             });
+
+            if ($request->filled('student_numbers')) {
+                $numbers = array_filter(array_map('trim', explode(',', $request->student_numbers)));
+                if (!empty($numbers)) {
+                    $query->whereIn('students.student_number', $numbers);
+                }
+            }
+
+            if ($request->filled('student_ids')) {
+                $ids = array_filter(array_map('trim', explode(',', $request->student_ids)));
+                if (!empty($ids)) {
+                    $query->whereIn('students.id', $ids);
+                }
+            }
+
+            if ($request->filled('search')) {
+                $search = trim($request->search);
+                $query->where(function ($q) use ($search) {
+                    $q->where('students.student_number', 'like', "%{$search}%")
+                      ->orWhere('students.school_email', 'like', "%{$search}%")
+                      ->orWhereHas('applicant', function ($a) use ($search) {
+                          $a->where('first_name', 'like', "%{$search}%")
+                            ->orWhere('middle_name', 'like', "%{$search}%")
+                            ->orWhere('last_name', 'like', "%{$search}%")
+                            ->orWhere('lrn', 'like', "%{$search}%");
+                      })->orWhereHas('user', function ($u) use ($search) {
+                          $u->where('name', 'like', "%{$search}%")
+                            ->orWhere('email', 'like', "%{$search}%");
+                      });
+                });
+            }
+
+            if ($request->filled('grade')) {
+                $query->where('students.grade_level', $request->grade);
+            }
+
+            if ($request->filled('gender')) {
+                $gender = strtolower($request->gender);
+                if ($gender === 'not_set') {
+                    $query->whereHas('applicant', fn ($q) => $q->whereNull('gender')->orWhere('gender', ''));
+                } else {
+                    $query->whereHas('applicant', fn ($q) => $q->whereRaw('LOWER(gender) = ?', [$gender]));
+                }
+            }
+
+            if ($request->filled('mode') || $request->filled('learning_mode')) {
+                $mode = strtolower($request->input('mode', $request->input('learning_mode')));
+                if (str_contains($mode, 'face') || str_contains($mode, 'f2f')) {
+                    $query->whereHas('applicant', fn ($q) => $q->whereRaw('LOWER(learning_mode) LIKE ? OR LOWER(learning_mode) LIKE ?', ['%face%', '%f2f%']));
+                } elseif (str_contains($mode, '1st')) {
+                    $query->whereHas('applicant', fn ($q) => $q->whereRaw('LOWER(learning_mode) LIKE ?', ['%1st%']));
+                } elseif (str_contains($mode, '2nd')) {
+                    $query->whereHas('applicant', fn ($q) => $q->whereRaw('LOWER(learning_mode) LIKE ?', ['%2nd%']));
+                } else {
+                    $query->whereHas('applicant', fn ($q) => $q->whereRaw('LOWER(learning_mode) LIKE ?', ["%{$mode}%"]));
+                }
+            }
+
+            if ($request->filled('type') || $request->filled('student_type')) {
+                $type = strtolower($request->input('type', $request->input('student_type')));
+                $query->whereHas('applicant', fn ($q) => $q->whereRaw('LOWER(student_type) LIKE ?', ["%{$type}%"]));
+            }
+
+            if ($request->filled('ms_status')) {
+                $status = $request->ms_status;
+                if ($status === 'active' || $status === 'enrolled') {
+                    $query->where('students.ms_license_active', true)
+                        ->whereNotNull('students.ms_user_id');
+                } elseif ($status === 'failed') {
+                    $query->whereHas('studentSection', fn ($q) => $q->where('ms_status', 'failed'));
+                } elseif ($status === 'pending') {
+                    $query->whereHas('studentSection', fn ($q) => $q->where('ms_status', 'pending'));
+                } elseif ($status === 'no_account') {
+                    $query->whereNull('students.ms_user_id');
+                } elseif ($status === 'no_license') {
+                    $query->where('students.ms_license_active', false)
+                        ->whereNotNull('students.ms_user_id');
+                }
+            }
+
+            if ($request->filled('password_status')) {
+                $pStatus = $request->password_status;
+                if ($pStatus === 'changed') {
+                    $query->whereNotNull('students.password_changed_at');
+                } elseif ($pStatus === 'temp') {
+                    $query->whereNull('students.password_changed_at')
+                        ->whereNotNull('students.ms_user_id');
+                } elseif ($pStatus === 'no_account') {
+                    $query->whereNull('students.ms_user_id');
+                }
+            }
+
+            return $query;
+        };
+
+        $baseQuery = Student::with(['applicant.user', 'studentSection.section'])->whereNull('students.deleted_at');
+        $query = $applyFilters($baseQuery);
+
+        $gradeField = "FIELD(students.grade_level, 'Kinder 1', 'Kinder 2', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12')";
+        $sort = $request->input('sort', 'latest');
+        $direction = strtolower((string) $request->input('direction', $sort === 'name' ? 'asc' : 'desc')) === 'asc' ? 'asc' : 'desc';
+
+        match ($sort) {
+            'name' => $query
+                ->leftJoin('enrollment_applicants as sort_applicants', 'sort_applicants.id', '=', 'students.enrollment_applicant_id')
+                ->select('students.*')
+                ->orderByRaw("CASE 
+                    WHEN LOWER(sort_applicants.learning_mode) LIKE '%face%' OR LOWER(sort_applicants.learning_mode) LIKE '%f2f%' THEN 1 
+                    WHEN LOWER(sort_applicants.learning_mode) LIKE '%1st%' THEN 2 
+                    WHEN LOWER(sort_applicants.learning_mode) LIKE '%2nd%' THEN 3 
+                    ELSE 9 
+                END ASC")
+                ->orderBy('sort_applicants.last_name', $direction)
+                ->orderBy('sort_applicants.first_name', $direction)
+                ->orderBy('students.id', 'desc'),
+            'grade' => $query
+                ->orderByRaw("CASE WHEN {$gradeField} = 0 THEN 1 ELSE 0 END ASC")
+                ->orderByRaw("{$gradeField} {$direction}")
+                ->orderBy('students.id', 'desc'),
+            'gender' => $query
+                ->leftJoin('enrollment_applicants as sort_applicants', 'sort_applicants.id', '=', 'students.enrollment_applicant_id')
+                ->select('students.*')
+                ->orderByRaw("CASE LOWER(COALESCE(sort_applicants.gender, '')) WHEN 'male' THEN 1 WHEN 'female' THEN 2 ELSE 3 END {$direction}")
+                ->orderBy('students.id', 'desc'),
+            'student_id' => $query->orderBy('student_number', $direction)->orderBy('students.id', 'desc'),
+            default => $query->orderBy('students.id', 'desc'),
+        };
+
+        $isPrint = $request->boolean('print_info')
+            || $request->boolean('print_credentials')
+            || $request->boolean('print_id')
+            || $request->boolean('print_documents')
+            || $request->boolean('print')
+            || $request->boolean('is_print');
+
+        if ($isPrint) {
+            $students = $query->get();
+        } else {
+            $students = $query->paginate(25)->withQueryString();
         }
 
-        // Telemetry calculation
-        $baseStudentQuery = Student::whereNull('deleted_at');
-
-        $taggedCount = (clone $baseStudentQuery)->where(function ($q) {
+        // Stats calculation for telemetry
+        $tempBase = Student::whereNull('deleted_at')->where(function ($q) {
             $q->whereHas('applicant', function ($a) {
                 $a->where('last_name', 'like', '%[TEMP%')
                   ->orWhere('first_name', 'like', '%[TEMP%');
             })->orWhereHas('user', function ($u) {
                 $u->where('name', 'like', '%[TEMP%');
             })->orWhere('school_email', 'like', '%temp%');
+        });
+
+        $totalTemp = (clone $tempBase)->count();
+        $f2fTemp = (clone $tempBase)->whereHas('applicant', function ($q) {
+            $q->where('learning_mode', 'like', '%f2f%')
+              ->orWhere('learning_mode', 'like', '%face%');
         })->count();
-
-        $missingAllCount = (clone $baseStudentQuery)->whereHas('applicant', function ($a) {
-            $a->where(function ($d) {
-                $d->whereNull('photo_2x2_url')->orWhere('photo_2x2_url', '');
-            })->where(function ($d) {
-                $d->whereNull('birth_cert_url')->orWhere('birth_cert_url', '');
-            })->where(function ($d) {
-                $d->whereNull('report_card_url')->orWhere('report_card_url', '');
-            })->where(function ($d) {
-                $d->whereNull('enrollment_fee_receipt_url')->orWhere('enrollment_fee_receipt_url', '');
-            });
+        $odlTemp = (clone $tempBase)->whereHas('applicant', function ($q) {
+            $q->where('learning_mode', 'not like', '%face%')
+              ->where('learning_mode', 'not like', '%f2f%');
         })->count();
+        $passwordsChanged = (clone $tempBase)->whereNotNull('password_changed_at')->count();
+        $passwordsTemp = (clone $tempBase)->whereNull('password_changed_at')->whereNotNull('ms_user_id')->count();
+        $noMsAccounts = (clone $tempBase)->whereNull('ms_user_id')->count();
 
-        $missingPaymentCount = (clone $baseStudentQuery)->whereHas('applicant', function ($a) {
-            $a->whereNull('enrollment_fee_receipt_url')->orWhere('enrollment_fee_receipt_url', '');
-        })->count();
+        $stats = [
+            'total' => $totalTemp,
+            'total_students' => $totalTemp,
+            'f2f_students' => $f2fTemp,
+            'flexible_students' => $odlTemp,
+            'passwords_changed' => $passwordsChanged,
+            'passwords_temp' => $passwordsTemp,
+            'no_ms_accounts' => $noMsAccounts,
+            'active_ms' => (clone $tempBase)->where('ms_license_active', true)->whereNotNull('ms_user_id')->count(),
+            'no_account' => $noMsAccounts,
+            'password_changed' => $passwordsChanged,
+        ];
 
-        $incompleteCount = (clone $baseStudentQuery)->where(function ($mainQ) {
-            $mainQ->whereHas('applicant', function ($a) {
-                $a->whereNull('photo_2x2_url')->orWhere('photo_2x2_url', '')
-                  ->orWhereNull('birth_cert_url')->orWhere('birth_cert_url', '')
-                  ->orWhereNull('report_card_url')->orWhere('report_card_url', '')
-                  ->orWhereNull('enrollment_fee_receipt_url')->orWhere('enrollment_fee_receipt_url', '');
-            });
-        })->count();
+        $passwordByGrade = DB::table('students')
+            ->leftJoin('enrollment_applicants', 'enrollment_applicants.id', '=', 'students.enrollment_applicant_id')
+            ->whereNull('students.deleted_at')
+            ->where(function ($q) {
+                $q->where('enrollment_applicants.last_name', 'like', '%[TEMP%')
+                  ->orWhere('enrollment_applicants.first_name', 'like', '%[TEMP%')
+                  ->orWhere('students.school_email', 'like', '%temp%');
+            })
+            ->select(
+                'students.grade_level',
+                DB::raw('COUNT(students.id) as total'),
+                DB::raw("COUNT(CASE WHEN LOWER(enrollment_applicants.learning_mode) LIKE '%face%' OR LOWER(enrollment_applicants.learning_mode) LIKE '%f2f%' THEN 1 END) as f2f"),
+                DB::raw("COUNT(CASE WHEN LOWER(enrollment_applicants.learning_mode) LIKE '%flexible%' OR LOWER(enrollment_applicants.learning_mode) LIKE '%online%' OR LOWER(enrollment_applicants.learning_mode) LIKE '%odl%' THEN 1 END) as odl"),
+                DB::raw('COUNT(CASE WHEN students.password_changed_at IS NOT NULL THEN 1 END) as changed'),
+                DB::raw('COUNT(CASE WHEN students.password_changed_at IS NULL AND students.ms_user_id IS NOT NULL THEN 1 END) as temp'),
+                DB::raw('COUNT(CASE WHEN students.ms_user_id IS NULL THEN 1 END) as no_account')
+            )
+            ->groupBy('students.grade_level')
+            ->get();
 
-        $totalActiveStudents = (clone $baseStudentQuery)->count();
+        $analytics = [
+            'total_students' => $totalTemp,
+            'filtered_total' => $isPrint ? count($students) : $students->total(),
+            'password_by_grade' => $passwordByGrade,
+        ];
 
-        // Order results
-        $gradeField = "FIELD(students.grade_level, 'Kinder 1', 'Kinder 2', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12')";
-        $students = $query
-            ->leftJoin('enrollment_applicants as sort_app', 'sort_app.id', '=', 'students.enrollment_applicant_id')
-            ->select('students.*')
-            ->orderByRaw("CASE WHEN {$gradeField} = 0 THEN 99 ELSE {$gradeField} END ASC")
-            ->orderBy('sort_app.last_name', 'asc')
-            ->orderBy('sort_app.first_name', 'asc')
-            ->paginate($perPage)
-            ->withQueryString();
-
-        // Active sections for filter dropdown
-        $sections = Section::orderBy('name', 'asc')->get();
-
-        // Build Announcement / Follow-up text (STRICTLY ZERO EMOJIS)
-        $announcementLines = [];
-        $announcementLines[] = "AMIS TEMPORARY STUDENT RECORDS AND PENDING REQUIREMENTS";
-        $announcementLines[] = "School Year 2026-2027";
-        $announcementLines[] = "Date Generated: " . now()->format('F d, Y h:i A');
-        $announcementLines[] = "Category: " . strtoupper(str_replace('_', ' ', $filterType));
-        $announcementLines[] = "Total Listed: " . $students->total();
-        $announcementLines[] = "------------------------------------------------------------";
-        $announcementLines[] = "";
-
-        foreach ($students as $idx => $st) {
-            $app = $st->applicant;
-            $name = $app ? trim($app->last_name . ', ' . $app->first_name . ' ' . ($app->middle_name ?: '')) : ('Student #' . $st->student_number);
-            $grade = $st->grade_level ?: 'Unassigned Grade';
-            $section = $st->section ?: 'Unassigned Section';
-            $mode = ($app && $app->learning_mode) ? $app->learning_mode : 'ODL';
-
-            $missingDocs = [];
-            if (empty($app?->photo_2x2_url)) $missingDocs[] = '2x2 Photo';
-            if (empty($app?->birth_cert_url)) $missingDocs[] = 'PSA Birth Certificate';
-            if (empty($app?->report_card_url)) $missingDocs[] = 'Form 138 / SF9 Report Card';
-            if (empty($app?->enrollment_fee_receipt_url)) $missingDocs[] = 'Enrollment Fee Receipt';
-
-            $docStatus = empty($missingDocs) ? 'Requirements Complete (4/4)' : 'Missing: ' . implode(', ', $missingDocs);
-            $isTagged = ($app && (str_contains($app->last_name, '[TEMP') || str_contains($app->first_name, '[TEMP')));
-
-            $announcementLines[] = ($idx + 1) . ". [" . $st->student_number . "] " . $name . " | " . $grade . " - " . $section . " (" . $mode . ")";
-            if ($isTagged) {
-                $announcementLines[] = "   Status: Tagged Temporary Account";
-            }
-            $announcementLines[] = "   Documents: " . $docStatus;
-            if ($app && ($app->parent_email || $app->parent_mobile)) {
-                $parentName = trim(($app->father_first_name ? $app->father_first_name . ' ' . $app->father_last_name : '') ?: ($app->mother_first_name ? $app->mother_first_name . ' ' . $app->mother_last_name : 'Parent/Guardian'));
-                $announcementLines[] = "   Contact: " . $parentName . " | Email: " . ($app->parent_email ?: 'N/A') . " | Phone: " . ($app->parent_mobile ?: 'N/A');
-            }
-            $announcementLines[] = "";
-        }
-
-        $announcementLines[] = "------------------------------------------------------------";
-        $announcementLines[] = "Please coordinate with the AMIS Registrar to submit all pending requirements.";
-        $announcementText = implode("\n", $announcementLines);
-
-        return view('admin.students.temporary', compact(
-            'students',
-            'gradeOrder',
-            'filterType',
-            'gradeFilter',
-            'modeFilter',
-            'sectionFilter',
-            'search',
-            'perPage',
-            'taggedCount',
-            'missingAllCount',
-            'missingPaymentCount',
-            'incompleteCount',
-            'totalActiveStudents',
-            'sections',
-            'announcementText'
-        ));
+        return view('admin.students.temporary', compact('students', 'stats', 'analytics', 'gradeOrder', 'isPrint'));
     }
 
     public function toggleTag(Request $request, Student $student)
@@ -285,9 +257,9 @@ class TemporaryStudentController extends Controller
 
             $this->syncAzureName($student, $user?->name, $cleanedLastName);
 
-            AdminAuditLog::record('temporary_student_cleared', true, "Removed temporary tag from student #{$student->student_number} ({$applicant->full_name}).");
+            AdminAuditLog::record('temporary_student_cleared', true, "Removed temporary tag from student #{$student->student_number} ({$applicant->full_name}). Returned to standard student records.");
 
-            return back()->with('success', "Temporary tag successfully removed for student #{$student->student_number}. Record is now in standard student records.");
+            return back()->with('success', "Temporary tag removed for student #{$student->student_number}. Account returned to standard student records.");
         } else {
             $newLastName = trim($applicant->last_name . ' [TEMP ACC]');
             $applicant->last_name = $newLastName;
@@ -302,7 +274,7 @@ class TemporaryStudentController extends Controller
 
             AdminAuditLog::record('temporary_student_tagged', true, "Marked student #{$student->student_number} ({$applicant->full_name}) as Temporary Account [TEMP ACC].");
 
-            return back()->with('success', "Student #{$student->student_number} moved to Temporary Accounts [TEMP ACC].");
+            return back()->with('success', "Student #{$student->student_number} tagged as Temporary Account [TEMP ACC].");
         }
     }
 
@@ -354,7 +326,7 @@ class TemporaryStudentController extends Controller
             }
         }
 
-        $actionWord = $action === 'tag' ? 'moved to Temporary Accounts [TEMP ACC]' : 'cleared of [TEMP ACC] tag and returned to Student Records';
+        $actionWord = $action === 'tag' ? 'moved to Temporary Accounts [TEMP ACC]' : 'cleared of [TEMP ACC] tag and returned to standard Student Records';
         AdminAuditLog::record('temporary_student_bulk_' . $action, true, "Bulk {$actionWord} for {$count} student records.");
 
         return back()->with('success', "Successfully {$actionWord} for {$count} student(s).");
@@ -362,17 +334,9 @@ class TemporaryStudentController extends Controller
 
     public function exportCsv(Request $request): StreamedResponse
     {
-        $filterType = $request->input('filter_type', 'tagged');
-        $gradeFilter = $request->input('grade');
-        $modeFilter = $request->input('mode');
-        $sectionFilter = $request->input('section');
-        $search = trim((string) $request->input('search', ''));
-
         $query = Student::with(['applicant.user', 'applicant.payment', 'studentSection.section'])
-            ->whereNull('students.deleted_at');
-
-        if ($filterType === 'tagged') {
-            $query->where(function ($q) {
+            ->whereNull('students.deleted_at')
+            ->where(function ($q) {
                 $q->whereHas('applicant', function ($a) {
                     $a->where('last_name', 'like', '%[TEMP%')
                       ->orWhere('first_name', 'like', '%[TEMP%');
@@ -380,43 +344,6 @@ class TemporaryStudentController extends Controller
                     $u->where('name', 'like', '%[TEMP%');
                 })->orWhere('students.school_email', 'like', '%temp%');
             });
-        } elseif ($filterType === 'missing_all') {
-            $query->whereHas('applicant', function ($a) {
-                $a->where(function ($d) {
-                    $d->whereNull('photo_2x2_url')->orWhere('photo_2x2_url', '');
-                })->where(function ($d) {
-                    $d->whereNull('birth_cert_url')->orWhere('birth_cert_url', '');
-                })->where(function ($d) {
-                    $d->whereNull('report_card_url')->orWhere('report_card_url', '');
-                })->where(function ($d) {
-                    $d->whereNull('enrollment_fee_receipt_url')->orWhere('enrollment_fee_receipt_url', '');
-                });
-            });
-        } elseif ($filterType === 'missing_payment') {
-            $query->whereHas('applicant', function ($a) {
-                $a->whereNull('enrollment_fee_receipt_url')->orWhere('enrollment_fee_receipt_url', '');
-            });
-        }
-
-        if (! empty($gradeFilter)) {
-            $query->where('students.grade_level', $gradeFilter);
-        }
-
-        if (! empty($modeFilter)) {
-            if ($modeFilter === 'f2f') {
-                $query->whereHas('applicant', fn($q) => $q->where('learning_mode', 'like', '%face%')->orWhere('learning_mode', 'like', '%f2f%'));
-            } elseif ($modeFilter === 'odl') {
-                $query->whereHas('applicant', fn($q) => $q->where('learning_mode', 'not like', '%face%')->where('learning_mode', 'not like', '%f2f%'));
-            }
-        }
-
-        if (! empty($search)) {
-            $query->where(function ($q) use ($search) {
-                $q->where('students.student_number', 'like', "%{$search}%")
-                  ->orWhere('students.school_email', 'like', "%{$search}%")
-                  ->orWhereHas('applicant', fn($a) => $a->where('last_name', 'like', "%{$search}%")->orWhere('first_name', 'like', "%{$search}%"));
-            });
-        }
 
         $filename = 'amis_temporary_students_' . date('Y_m_d_His') . '.csv';
 
@@ -427,19 +354,16 @@ class TemporaryStudentController extends Controller
                 'Last Name',
                 'First Name',
                 'Middle Name',
-                'Temporary Tagged',
                 'Grade Level',
                 'Section',
                 'Learning Mode',
+                'Gender',
                 'School Email',
-                '2x2 Photo Status',
-                'PSA Birth Cert Status',
-                'Report Card Status',
-                'Payment Receipt Status',
-                'Total Requirements Submitted',
-                'Parent Name',
-                'Parent Email',
-                'Parent Mobile',
+                '2x2 Photo',
+                'PSA Birth Certificate',
+                'Report Card',
+                'Enrollment Fee Receipt',
+                'Requirements Completion',
             ]);
 
             $query->chunk(100, function ($students) use ($handle) {
@@ -450,28 +374,22 @@ class TemporaryStudentController extends Controller
                     $hasReportCard = ! empty($app?->report_card_url);
                     $hasReceipt = ! empty($app?->enrollment_fee_receipt_url);
                     $docCount = ($hasPhoto ? 1 : 0) + ($hasBirthCert ? 1 : 0) + ($hasReportCard ? 1 : 0) + ($hasReceipt ? 1 : 0);
-                    $isTagged = ($app && (str_contains($app->last_name, '[TEMP') || str_contains($app->first_name, '[TEMP'))) ? 'YES' : 'NO';
-
-                    $parentName = trim(($app?->father_first_name ? $app->father_first_name . ' ' . $app->father_last_name : '') ?: ($app?->mother_first_name ? $app->mother_first_name . ' ' . $app->mother_last_name : ''));
 
                     fputcsv($handle, [
                         $st->student_number,
                         $app?->last_name ?? '',
                         $app?->first_name ?? '',
                         $app?->middle_name ?? '',
-                        $isTagged,
                         $st->grade_level ?? '',
                         $st->section ?? 'Unassigned',
                         $app?->learning_mode ?? 'ODL',
+                        $app?->gender ?? 'Unspecified',
                         $st->school_email ?? '',
                         $hasPhoto ? 'Uploaded' : 'Missing',
                         $hasBirthCert ? 'Uploaded' : 'Missing',
                         $hasReportCard ? 'Uploaded' : 'Missing',
                         $hasReceipt ? 'Uploaded' : 'Missing',
                         "{$docCount} of 4",
-                        $parentName,
-                        $app?->parent_email ?? '',
-                        $app?->parent_mobile ?? '',
                     ]);
                 }
             });
