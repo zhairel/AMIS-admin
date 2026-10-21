@@ -12,6 +12,8 @@ class SendPaymentReminders extends Command
     protected $signature = 'email:send-payment-reminder 
                             {--send : Actually dispatch emails to all parents and students} 
                             {--preview= : Send a single test email to this address for preview}
+                            {--month= : Billing month in YYYY-MM format, defaults to current month (e.g. 2026-10)}
+                            {--name= : Recipient name for preview}
                             {--force : Skip confirmation prompt for non-interactive scripts}';
 
     protected $description = 'Stage, preview, or dispatch the monthly payment reminder email to active students and their parents.';
@@ -53,9 +55,15 @@ class SendPaymentReminders extends Command
         // 3. Handle Preview Mode
         $previewAddress = $this->option('preview');
         if ($previewAddress) {
-            $this->info("Sending test/preview email to: {$previewAddress}...");
+            $month = $this->option('month') ?: '2026-10';
+            $name = $this->option('name') ?: 'Mon Lingasa';
+            $this->info("Sending test/preview email to: {$previewAddress} (Month: {$month}, Name: {$name})...");
             try {
-                Mail::to($previewAddress)->send(new PaymentReminderMail);
+                Mail::to($previewAddress)->send(new PaymentReminderMail(
+                    recipientName: $name,
+                    billingMonth: $month,
+                    dispatchRef: 'TEST-' . date('dHis')
+                ));
                 $this->info("SUCCESS: Test email successfully sent to {$previewAddress}!");
             } catch (\Exception $e) {
                 $this->error('ERROR sending preview email: '.$e->getMessage());
