@@ -235,6 +235,54 @@
             </a>
         @endunless
 
+        @php
+            $currentSchoolYear = $currentSchoolYear ?? app(\App\Services\SchoolYearService::class)->current();
+            $availableSchoolYears = $availableSchoolYears ?? app(\App\Services\SchoolYearService::class)->available();
+            $defaultSy = config('services.school.year', '2026-2027');
+        @endphp
+
+        <!-- Global School Year Filter Widget -->
+        <div class="mb-3 px-1">
+            <div class="rounded-xl border border-slate-200/90 bg-slate-50/90 p-2.5 shadow-2xs transition hover:border-emerald-300 dark:border-gray-700/80 dark:bg-gray-800/80">
+                <div class="flex items-center justify-between gap-1 mb-1.5 px-0.5">
+                    <span class="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">
+                        <i data-lucide="calendar" class="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400"></i>
+                        School Year
+                    </span>
+                    @if ($currentSchoolYear === $defaultSy)
+                        <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300" title="Active Official School Year">
+                            <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                            Active
+                        </span>
+                    @else
+                        <span class="inline-flex items-center gap-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-800 dark:bg-amber-900/60 dark:text-amber-300" title="Historical/Future Record Filter Active">
+                            Filtered
+                        </span>
+                    @endif
+                </div>
+
+                <form method="POST" action="{{ route('admin.set-school-year') }}" class="view-only-allowed m-0">
+                    @csrf
+                    <input type="hidden" name="return_url" value="{{ request()->fullUrl() }}">
+                    <div class="relative">
+                        <select name="school_year" 
+                                onchange="this.form.submit()" 
+                                title="Filter records by School Year"
+                                class="w-full appearance-none rounded-lg border border-slate-250 bg-white py-1.5 pl-2.5 pr-7 text-xs font-bold text-slate-800 shadow-2xs transition hover:border-emerald-400 focus:border-emerald-500 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 dark:border-gray-600 dark:bg-gray-700 dark:text-slate-100 cursor-pointer">
+                            @foreach ($availableSchoolYears as $syOption)
+                                <option value="{{ $syOption }}" @selected($currentSchoolYear === $syOption)>
+                                    S.Y. {{ $syOption }}{{ $syOption === $defaultSy ? ' (Current)' : '' }}
+                                </option>
+                            @endforeach
+                        </select>
+                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2 text-slate-400">
+                            <i data-lucide="chevrons-up-down" class="h-3.5 w-3.5"></i>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
         <div class="sidebar-section-container">
             <div class="sidebar-section-header">
                 <i data-lucide="{{ $activeSection['icon'] }}" class="sidebar-section-header-icon {{ $activeSection['iconClass'] }}"></i>

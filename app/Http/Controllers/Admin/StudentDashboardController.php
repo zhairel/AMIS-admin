@@ -12,27 +12,31 @@ class StudentDashboardController extends Controller
 {
     public function dashboard()
     {
-        $totalStudents = Student::count();
+        $activeSy = app(\App\Services\SchoolYearService::class)->current();
+        $studentBase = fn () => Student::query()
+            ->when($activeSy && preg_match('/^\d{4}-\d{4}$/', (string) $activeSy), fn ($q) => $q->where('students.school_year', $activeSy));
 
-        $f2fStudents = Student::whereHas('applicant', function ($q) {
+        $totalStudents = $studentBase()->count();
+
+        $f2fStudents = $studentBase()->whereHas('applicant', function ($q) {
             $q->where('learning_mode', 'like', '%face-to-face%')
                 ->orWhere('learning_mode', 'like', '%f2f%')
                 ->orWhere('learning_mode', 'like', '%face_to_face%');
         })->count();
 
-        $flexibleStudents = Student::whereHas('applicant', function ($q) {
+        $flexibleStudents = $studentBase()->whereHas('applicant', function ($q) {
             $q->where('learning_mode', 'like', '%flexible%')
                 ->orWhere('learning_mode', 'like', '%online%');
         })->count();
 
-        $msSynced = Student::whereNotNull('ms_user_id')->count();
+        $msSynced = $studentBase()->whereNotNull('ms_user_id')->count();
 
         $stats = [
             'total_students' => $totalStudents,
             'f2f_students' => $f2fStudents,
             'flexible_students' => $flexibleStudents,
             'ms_synced' => $msSynced,
-            'passwords_changed' => Student::whereNotNull('password_changed_at')->count(),
+            'passwords_changed' => $studentBase()->whereNotNull('password_changed_at')->count(),
             'total_sections' => Section::count(),
             'allocated_slots' => StudentSection::count(),
         ];
@@ -69,7 +73,7 @@ class StudentDashboardController extends Controller
             'fill_rate' => ($flexibleSections->count() * 45) > 0 ? min(100, round(($flexibleSections->sum('occupied') / ($flexibleSections->count() * 45)) * 100)) : 0,
         ];
 
-        $gradeCounts = Student::select('grade_level', DB::raw('count(*) as count'))
+        $gradeCounts = $studentBase()->select('grade_level', DB::raw('count(*) as count'))
             ->groupBy('grade_level')
             ->orderByRaw("FIELD(grade_level, 'Kinder 1', 'Kinder 2', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12')")
             ->get();
@@ -78,8 +82,8 @@ class StudentDashboardController extends Controller
             'gender' => [
                 'labels' => ['Male', 'Female'],
                 'data' => [
-                    (int) Student::whereHas('applicant', fn ($q) => $q->where('gender', 'male'))->count(),
-                    (int) Student::whereHas('applicant', fn ($q) => $q->where('gender', 'female'))->count(),
+                    (int) $studentBase()->whereHas('applicant', fn ($q) => $q->where('gender', 'male'))->count(),
+                    (int) $studentBase()->whereHas('applicant', fn ($q) => $q->where('gender', 'female'))->count(),
                 ],
             ],
             'mode' => [

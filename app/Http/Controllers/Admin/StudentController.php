@@ -43,6 +43,11 @@ class StudentController extends Controller
         }
 
         $applyFilters = function ($query) use ($request, $isTeacherAdminViewer, $teacherGradeScope) {
+            $activeSy = $request->input('school_year', session('admin_school_year'));
+            if ($activeSy && preg_match('/^\d{4}-\d{4}$/', (string) $activeSy)) {
+                $query->where('students.school_year', $activeSy);
+            }
+
             if ($isTeacherAdminViewer) {
                 $teacherGradeScope === null
                     ? $query->whereRaw('1 = 0')
@@ -179,20 +184,23 @@ class StudentController extends Controller
             $students = $query->paginate(25)->withQueryString();
         }
 
-        $totalStudents = Student::count();
-        $f2fStudents = Student::whereHas('applicant', function ($q) {
+        $baseStudentQuery = fn () => Student::query()
+            ->when($activeSy && preg_match('/^\d{4}-\d{4}$/', (string) $activeSy), fn ($q) => $q->where('students.school_year', $activeSy));
+
+        $totalStudents = $baseStudentQuery()->count();
+        $f2fStudents = $baseStudentQuery()->whereHas('applicant', function ($q) {
             $q->where('learning_mode', 'like', '%face-to-face%')
                 ->orWhere('learning_mode', 'like', '%f2f%')
                 ->orWhere('learning_mode', 'like', '%face_to_face%');
         })->count();
-        $flexibleStudents = Student::whereHas('applicant', function ($q) {
+        $flexibleStudents = $baseStudentQuery()->whereHas('applicant', function ($q) {
             $q->where('learning_mode', 'like', '%flexible%')
                 ->orWhere('learning_mode', 'like', '%online%')
                 ->orWhere('learning_mode', 'like', '%odl%');
         })->count();
-        $passwordsChanged = Student::whereNotNull('password_changed_at')->count();
-        $passwordsTemp = Student::whereNull('password_changed_at')->whereNotNull('ms_user_id')->count();
-        $noMsAccounts = Student::whereNull('ms_user_id')->count();
+        $passwordsChanged = $baseStudentQuery()->whereNotNull('password_changed_at')->count();
+        $passwordsTemp = $baseStudentQuery()->whereNull('password_changed_at')->whereNotNull('ms_user_id')->count();
+        $noMsAccounts = $baseStudentQuery()->whereNull('ms_user_id')->count();
 
         $stats = [
             'total' => $totalStudents,
@@ -202,10 +210,10 @@ class StudentController extends Controller
             'passwords_changed' => $passwordsChanged,
             'passwords_temp' => $passwordsTemp,
             'no_ms_accounts' => $noMsAccounts,
-            'active_ms' => Student::where('ms_license_active', true)->whereNotNull('ms_user_id')->count(),
+            'active_ms' => $baseStudentQuery()->where('ms_license_active', true)->whereNotNull('ms_user_id')->count(),
             'no_account' => $noMsAccounts,
             'password_changed' => $passwordsChanged,
-            'temp_accounts' => Student::whereNull('deleted_at')->where(function ($q) {
+            'temp_accounts' => $baseStudentQuery()->whereNull('deleted_at')->where(function ($q) {
                 $q->whereHas('applicant', function ($a) {
                     $a->where('last_name', 'like', '%[TEMP%')
                       ->orWhere('first_name', 'like', '%[TEMP%');
@@ -217,6 +225,7 @@ class StudentController extends Controller
 
         $passwordByGrade = DB::table('students')
             ->leftJoin('enrollment_applicants', 'enrollment_applicants.id', '=', 'students.enrollment_applicant_id')
+            ->when($activeSy && preg_match('/^\d{4}-\d{4}$/', (string) $activeSy), fn ($q) => $q->where('students.school_year', $activeSy))
             ->select(
                 'students.grade_level',
                 DB::raw('COUNT(students.id) as total'),

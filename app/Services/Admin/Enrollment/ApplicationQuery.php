@@ -31,23 +31,34 @@ class ApplicationQuery
         'Grade 12',
     ];
 
-    public function dashboardStats(): array
+    public function dashboardStats(?string $schoolYear = null): array
     {
+        $schoolYear ??= app(\App\Services\SchoolYearService::class)->current();
+
+        $applicantQuery = fn () => EnrollmentApplicant::whereNotIn('status', ['draft'])
+            ->when($schoolYear, fn ($q) => $q->where('school_year', $schoolYear));
+
+        $studentQuery = fn () => Student::query()
+            ->when($schoolYear, fn ($q) => $q->where('school_year', $schoolYear));
+
         return [
-            'total' => EnrollmentApplicant::whereNotIn('status', ['draft'])->count(),
-            'pending' => EnrollmentApplicant::whereIn('status', ['ready_for_submission', 'pending', 'submitted'])->count(),
-            'under_review' => EnrollmentApplicant::where('status', 'under_review')->count(),
-            'approved' => EnrollmentApplicant::where('status', 'approved')->count(),
-            'rejected' => EnrollmentApplicant::where('status', 'rejected')->count(),
+            'total' => $applicantQuery()->count(),
+            'pending' => $applicantQuery()->whereIn('status', ['ready_for_submission', 'pending', 'submitted'])->count(),
+            'under_review' => $applicantQuery()->where('status', 'under_review')->count(),
+            'approved' => $applicantQuery()->where('status', 'approved')->count(),
+            'rejected' => $applicantQuery()->where('status', 'rejected')->count(),
             'payments_pending' => Payment::where('status', 'pending')->whereNotNull('receipt_url')->count(),
-            'students' => Student::count(),
+            'students' => $studentQuery()->count(),
         ];
     }
 
-    public function recentApplications(int $limit = 10): Collection
+    public function recentApplications(int $limit = 10, ?string $schoolYear = null): Collection
     {
+        $schoolYear ??= app(\App\Services\SchoolYearService::class)->current();
+
         return EnrollmentApplicant::with('user', 'payment')
             ->whereNotIn('status', ['draft'])
+            ->when($schoolYear, fn ($q) => $q->where('school_year', $schoolYear))
             ->latest()
             ->limit($limit)
             ->get();
@@ -57,6 +68,11 @@ class ApplicationQuery
     {
         $query = EnrollmentApplicant::with('user', 'payment', 'student')
             ->whereNotIn('enrollment_applicants.status', ['draft']);
+
+        $schoolYear = $request->input('school_year', session('admin_school_year'));
+        if ($schoolYear && preg_match('/^\d{4}-\d{4}$/', (string) $schoolYear)) {
+            $query->where('enrollment_applicants.school_year', $schoolYear);
+        }
 
         $this->applyTeacherGradeScope($query, 'enrollment_applicants.grade_level', $request);
 
@@ -276,6 +292,11 @@ class ApplicationQuery
     {
         $query = EnrollmentApplicant::with('user', 'payment')
             ->whereNotIn('status', ['draft']);
+
+        $schoolYear = $request->input('school_year', session('admin_school_year'));
+        if ($schoolYear && preg_match('/^\d{4}-\d{4}$/', (string) $schoolYear)) {
+            $query->where('school_year', $schoolYear);
+        }
 
         $this->applyTeacherGradeScope($query, 'grade_level', $request);
 

@@ -16,11 +16,12 @@ class DashboardController extends Controller
 {
     public function __invoke(ApplicationQuery $applications)
     {
-        $schoolYear = (string) (EnrollmentApplicant::whereNotNull('school_year')->latest()->value('school_year') ?? config('services.school.year'));
+        $schoolYear = app(\App\Services\SchoolYearService::class)->current();
 
         // Fetch application count by grade level for the enrollment trend area chart
         $gradeCounts = EnrollmentApplicant::select('grade_level', DB::raw('COUNT(*) as total'))
             ->whereNotIn('status', ['draft'])
+            ->where('school_year', $schoolYear)
             ->whereNotNull('grade_level')
             ->groupBy('grade_level')
             ->orderBy('grade_level')
@@ -51,26 +52,31 @@ class DashboardController extends Controller
         }
 
         return view('admin.dashboard', [
-            'stats' => $applications->dashboardStats(),
-            'recent' => $applications->recentApplications(),
+            'stats' => $applications->dashboardStats($schoolYear),
+            'recent' => $applications->recentApplications(10, $schoolYear),
             'statusBadges' => EnrollmentReviewService::STATUS_BADGES,
             'statusLabels' => EnrollmentReviewService::STATUS_LABELS,
             'pmBadges' => EnrollmentReviewService::PAYMENT_BADGES,
             'gradeCounts' => $gradeCounts,
             'slotStats' => $slotStats,
             'schoolYear' => $schoolYear,
-            'dashboardKpis' => $this->kpis(),
+            'dashboardKpis' => $this->kpis($schoolYear),
             'dashboardCharts' => $this->charts($gradeCounts),
             'storageStats' => $this->storageStats(),
         ]);
     }
 
-    private function kpis(): array
+    private function kpis(?string $schoolYear = null): array
     {
-        $total = EnrollmentApplicant::whereNotIn('status', ['draft'])->count();
-        $underReview = EnrollmentApplicant::whereIn('status', ['ready_for_submission', 'pending', 'submitted', 'under_review'])->count();
-        $approved = EnrollmentApplicant::where('status', 'approved')->count();
-        $students = Student::count();
+        $appBase = fn () => EnrollmentApplicant::whereNotIn('status', ['draft'])
+            ->when($schoolYear, fn ($q) => $q->where('school_year', $schoolYear));
+
+        $total = $appBase()->count();
+        $underReview = $appBase()->whereIn('status', ['ready_for_submission', 'pending', 'submitted', 'under_review'])->count();
+        $approved = $appBase()->where('status', 'approved')->count();
+        $students = Student::query()
+            ->when($schoolYear, fn ($q) => $q->where('school_year', $schoolYear))
+            ->count();
         $payments = Payment::whereIn('status', ['pending', 'verified'])->count();
 
         return [
@@ -79,32 +85,32 @@ class DashboardController extends Controller
                 'label' => 'Applications',
                 'value' => $total,
                 'icon' => 'files',
-                'trend' => $this->growthFor(EnrollmentApplicant::query()->whereNotIn('status', ['draft'])),
-                'sparkline' => $this->monthlySeries(EnrollmentApplicant::query()->whereNotIn('status', ['draft'])),
+                'trend' => $this->growthFor($appBase()),
+                'sparkline' => $this->monthlySeries($appBase()),
             ],
             [
                 'key' => 'review',
                 'label' => 'Under Review',
                 'value' => $underReview,
                 'icon' => 'search-check',
-                'trend' => $this->growthFor(EnrollmentApplicant::query()->whereIn('status', ['ready_for_submission', 'pending', 'submitted', 'under_review'])),
-                'sparkline' => $this->monthlySeries(EnrollmentApplicant::query()->whereIn('status', ['ready_for_submission', 'pending', 'submitted', 'under_review'])),
+                'trend' => $this->growthFor($appBase()->whereIn('status', ['ready_for_submission', 'pending', 'submitted', 'under_review'])),
+                'sparkline' => $this->monthlySeries($appBase()->whereIn('status', ['ready_for_submission', 'pending', 'submitted', 'under_review'])),
             ],
             [
                 'key' => 'approved',
                 'label' => 'Approved',
                 'value' => $approved,
                 'icon' => 'badge-check',
-                'trend' => $this->growthFor(EnrollmentApplicant::query()->where('status', 'approved')),
-                'sparkline' => $this->monthlySeries(EnrollmentApplicant::query()->where('status', 'approved')),
+                'trend' => $this->growthFor($appBase()->where('status', 'approved')),
+                'sparkline' => $this->monthlySeries($appBase()->where('status', 'approved')),
             ],
             [
                 'key' => 'students',
                 'label' => 'Students',
                 'value' => $students,
                 'icon' => 'graduation-cap',
-                'trend' => $this->growthFor(Student::query()),
-                'sparkline' => $this->monthlySeries(Student::query()),
+                'trend' => $this->growthFor(Student::query()->when($schoolYear, fn ($q) => $q->where('school_year', $schoolYear))),
+                'sparkline' => $this->monthlySeries(Student::query()->when($schoolYear, fn ($q) => $q->where('school_year', $schoolYear))),
             ],
             [
                 'key' => 'payments',

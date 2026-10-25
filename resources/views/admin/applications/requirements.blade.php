@@ -24,6 +24,9 @@
 
         <div class="px-6 py-5">
             <form method="GET" class="mb-5 grid grid-cols-12 gap-3">
+                @if(request('school_year'))
+                    <input type="hidden" name="school_year" value="{{ request('school_year') }}">
+                @endif
                 <label class="relative col-span-4">
                     <i data-lucide="search" class="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400"></i>
                     <input name="search" value="{{ request('search') }}" placeholder="Search student or email" class="{{ $inputClass }} w-full pl-9">

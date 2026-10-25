@@ -30,5 +30,13 @@ class AppServiceProvider extends ServiceProvider
         );
 
         Event::listen(MessageSent::class, LogSentEmail::class);
+
+        \Illuminate\Support\Facades\View::composer(['partials.sidebar', 'layouts.admin', 'admin.*'], function ($view) {
+            $service = app(\App\Services\SchoolYearService::class);
+            $view->with([
+                'currentSchoolYear' => $service->current(),
+                'availableSchoolYears' => $service->available(),
+            ]);
+        });
     }
 }

@@ -45,6 +45,16 @@ class AdminOnly
             abort(403, 'This account is view-only.');
         }
 
+        if ($request->filled('school_year') && is_string($request->query('school_year'))) {
+            $sy = trim((string) $request->query('school_year'));
+            if (preg_match('/^\d{4}-\d{4}$/', $sy)) {
+                session([
+                    'admin_school_year' => $sy,
+                    'academic_school_year' => $sy,
+                ]);
+            }
+        }
+
         $routeName = $request->route()?->getName();
 
         if (

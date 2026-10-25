@@ -25,9 +25,10 @@ class ApplicantController extends Controller
 
     public function dashboard(Request $request)
     {
-        $schoolYear = (string) (EnrollmentApplicant::whereNotNull('school_year')->latest()->value('school_year') ?? config('services.school.year'));
+        $schoolYear = app(\App\Services\SchoolYearService::class)->current();
         $gradeCounts = EnrollmentApplicant::select('grade_level', DB::raw('COUNT(*) as total'))
             ->whereNotIn('status', ['draft'])
+            ->where('school_year', $schoolYear)
             ->whereNotNull('grade_level')
             ->groupBy('grade_level')
             ->orderBy('grade_level')
@@ -48,9 +49,9 @@ class ApplicantController extends Controller
         return view('admin.applications.dashboard', [
             'schoolYear' => $schoolYear,
             'familiesCount' => $this->applications->paginateFamilies($request, 1)->total(),
-            'totalApplications' => EnrollmentApplicant::whereNotIn('status', ['draft'])->count(),
-            'reviewQueue' => EnrollmentApplicant::whereIn('status', ['ready_for_submission', 'pending', 'submitted', 'under_review'])->count(),
-            'approvedCount' => EnrollmentApplicant::where('status', 'approved')->count(),
+            'totalApplications' => EnrollmentApplicant::whereNotIn('status', ['draft'])->where('school_year', $schoolYear)->count(),
+            'reviewQueue' => EnrollmentApplicant::whereIn('status', ['ready_for_submission', 'pending', 'submitted', 'under_review'])->where('school_year', $schoolYear)->count(),
+            'approvedCount' => EnrollmentApplicant::where('status', 'approved')->where('school_year', $schoolYear)->count(),
             'capacityStats' => compact('capacity', 'enrolled', 'available', 'utilization'),
             'gradeSlots' => $gradeSlots,
             'slotRows' => $slotRows,
@@ -99,9 +100,11 @@ class ApplicantController extends Controller
 
     private function registryData(Request $request): array
     {
+        $schoolYear = app(\App\Services\SchoolYearService::class)->current();
         $gradeLevels = $this->visibleGradeLevels($request);
         $teacherGradeScope = $this->teacherCurrentGradeScope($request, $gradeLevels);
         $countQuery = fn () => EnrollmentApplicant::query()
+            ->when($schoolYear, fn ($q) => $q->where('school_year', $schoolYear))
             ->when($request->user()?->isTeacherAdminViewer(), function ($query) use ($teacherGradeScope) {
                 if ($teacherGradeScope === null) {
                     $query->whereRaw('1 = 0');

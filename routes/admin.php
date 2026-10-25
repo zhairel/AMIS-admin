@@ -25,6 +25,7 @@ use App\Http\Controllers\Admin\Finance\MonthlyPaymentReminderController;
 use App\Http\Controllers\Admin\GoogleDriveAuthController;
 use App\Http\Controllers\Admin\RegistrationController;
 use App\Http\Controllers\Admin\RequirementController;
+use App\Http\Controllers\Admin\SchoolYearSwitchController;
 use App\Http\Controllers\Admin\SectionController;
 use App\Http\Controllers\Admin\SecurityWorkspaceController;
 use App\Http\Controllers\Admin\StudentBatchImportController;
@@ -98,6 +99,7 @@ Route::name('admin.')->group(function () {
 
     Route::middleware(['auth', 'admin'])->group(function () {
         Route::get('/dashboard', DashboardController::class)->name('dashboard');
+        Route::match(['get', 'post'], '/set-school-year', SchoolYearSwitchController::class)->name('set-school-year');
 
         // System Notifications API
         Route::prefix('notifications')->name('notifications.')->group(function () {
