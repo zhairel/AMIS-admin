@@ -38,6 +38,28 @@ class EnrollmentApprovalService
 
         $settings = EnrollmentSetting::current();
 
+        // ── Auto-link existing student for Old Student re-enrollment ───────────
+        if (! $applicant->student) {
+            $existingStudent = null;
+            if ($applicant->amis_student_id) {
+                $existingStudent = Student::where('student_number', $applicant->amis_student_id)->first();
+            }
+            if (! $existingStudent && $applicant->student_type === 'Old') {
+                $existingStudent = Student::whereHas('applicant', function ($q) use ($applicant) {
+                    $q->whereRaw('LOWER(TRIM(first_name)) = ?', [mb_strtolower(trim((string) $applicant->first_name))])
+                        ->whereRaw('LOWER(TRIM(last_name)) = ?', [mb_strtolower(trim((string) $applicant->last_name))])
+                        ->where('date_of_birth', $applicant->date_of_birth);
+                })->first();
+            }
+
+            if ($existingStudent) {
+                $existingStudent->update([
+                    'enrollment_applicant_id' => $applicant->id,
+                ]);
+                $applicant->setRelation('student', $existingStudent);
+            }
+        }
+
         if ($applicant->student) {
             $this->backfillMicrosoftPhoto($applicant);
 
@@ -53,6 +75,11 @@ class EnrollmentApprovalService
                     'grade_level' => $applicant->grade_level,
                     'school_year' => $applicant->school_year,
                 ]);
+            }
+
+            // Enroll into matching Teams section/channels for their new grade level
+            if ($applicant->student->ms_user_id) {
+                $this->enrollInTeams($applicant->student, $applicant->student->ms_user_id, new MicrosoftGraphService);
             }
 
             // Auto-generate permanent official Enrollment Application Form PDF and queue requirements if missing
@@ -144,7 +171,7 @@ class EnrollmentApprovalService
                 $graph = new MicrosoftGraphService;
             }
 
-            // $this->enrollInTeams($student, $msUserId, $graph);
+            $this->enrollInTeams($student, $msUserId, $graph);
 
             if ($settings->generate_soa ?? true) {
                 $this->generateSoa($student, $applicant);
@@ -223,14 +250,14 @@ class EnrollmentApprovalService
 
         $studentNumber = DB::transaction(function () use ($yearSuffix) {
             $latest = Student::where('student_number', 'like', $yearSuffix.'%')
+                ->where('student_number', 'not like', $yearSuffix.'9%')
                 ->lockForUpdate()
                 ->orderByRaw('CAST(student_number AS UNSIGNED) DESC')
                 ->value('student_number');
 
-            if ($latest) {
-                $num = (int) substr($latest, 2) + 1;
-            } else {
-                $num = 1;
+            $num = $latest ? (int) substr($latest, 2) + 1 : 1;
+            if ($yearSuffix === '26' && $num < 1219) {
+                $num = 1219;
             }
 
             $candidate = $yearSuffix.str_pad($num, 4, '0', STR_PAD_LEFT);
