@@ -131,14 +131,13 @@ class StudentPrintController extends Controller
     public function printEnrolmentFormsBatch(Request $request)
     {
         ini_set('memory_limit', '1024M');
-        ini_set('max_execution_time', 300);
-
+        $activeSy = app(\App\Services\SchoolYearService::class)->current();
         $query = Student::with([
             'applicant.user',
             'applicant.payment',
             'studentSection.section',
             'officialEnrollmentForm'
-        ]);
+        ])->when($activeSy && preg_match('/^\d{4}-\d{4}$/', (string) $activeSy), fn ($q) => $q->where('students.school_year', $activeSy));
 
         if ($request->filled('section_id')) {
             $query->whereHas('studentSection', function ($q) use ($request) {
@@ -257,7 +256,9 @@ class StudentPrintController extends Controller
             }
         }
 
-        $query = Student::query();
+        $activeSy = app(\App\Services\SchoolYearService::class)->current();
+        $query = Student::query()
+            ->when($activeSy && preg_match('/^\d{4}-\d{4}$/', (string) $activeSy), fn ($q) => $q->where('students.school_year', $activeSy));
 
         if ($isTeacherAdminViewer) {
             $teacherGradeScope === null
@@ -309,6 +310,7 @@ class StudentPrintController extends Controller
             ->withQueryString();
 
         $gradeCounts = Student::query()
+            ->when($activeSy && preg_match('/^\d{4}-\d{4}$/', (string) $activeSy), fn ($q) => $q->where('students.school_year', $activeSy))
             ->selectRaw('grade_level, count(*) as total')
             ->groupBy('grade_level')
             ->pluck('total', 'grade_level')

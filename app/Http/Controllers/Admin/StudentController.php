@@ -42,8 +42,10 @@ class StudentController extends Controller
             }
         }
 
-        $applyFilters = function ($query) use ($request, $isTeacherAdminViewer, $teacherGradeScope) {
-            $activeSy = $request->input('school_year', session('admin_school_year'));
+        $schoolYearService = app(\App\Services\SchoolYearService::class);
+        $activeSy = $schoolYearService->current();
+
+        $applyFilters = function ($query) use ($request, $isTeacherAdminViewer, $teacherGradeScope, $activeSy) {
             if ($activeSy && preg_match('/^\d{4}-\d{4}$/', (string) $activeSy)) {
                 $query->where('students.school_year', $activeSy);
             }
@@ -244,7 +246,7 @@ class StudentController extends Controller
             'password_by_grade' => $passwordByGrade,
         ];
 
-        return view('admin.students.index', compact('students', 'stats', 'analytics', 'gradeOrder', 'isPrint'));
+        return view('admin.students.index', compact('students', 'stats', 'analytics', 'gradeOrder', 'isPrint', 'activeSy'));
     }
 
     public function show(Student $student)

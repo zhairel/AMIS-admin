@@ -2,9 +2,7 @@
 <form method="GET" class="mb-5 grid grid-cols-12 gap-3 print:hidden" id="filterForm">
     <input type="hidden" name="sort" value="{{ $sort }}">
     <input type="hidden" name="direction" value="{{ $direction }}">
-    @if(request('school_year'))
-        <input type="hidden" name="school_year" value="{{ request('school_year') }}">
-    @endif
+    <input type="hidden" name="school_year" value="{{ $activeSy ?? $currentSchoolYear ?? app(\App\Services\SchoolYearService::class)->current() }}">
     <label class="relative col-span-12 lg:col-span-2">
         <i data-lucide="search" class="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400"></i>
         <input name="search" value="{{ request('search') }}" placeholder="Search name, ID, or email" class="{{ $inputClass }} w-full pl-9">

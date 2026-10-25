@@ -111,7 +111,7 @@ class EnrollmentReportController extends Controller
         $query = Student::query()
             ->with(['applicant', 'studentSection.section']);
 
-        $activeSy = $request->input('school_year', session('admin_school_year'));
+        $activeSy = app(\App\Services\SchoolYearService::class)->current();
         if ($activeSy && preg_match('/^\d{4}-\d{4}$/', (string) $activeSy)) {
             $query->where('school_year', $activeSy);
         }
@@ -681,7 +681,7 @@ class EnrollmentReportController extends Controller
             });
         }
 
-        $activeSy = $request->input('school_year', session('admin_school_year'));
+        $activeSy = app(\App\Services\SchoolYearService::class)->current();
         if ($activeSy && preg_match('/^\d{4}-\d{4}$/', (string) $activeSy)) {
             $query->where('school_year', $activeSy);
         }
@@ -818,7 +818,7 @@ class EnrollmentReportController extends Controller
             $query->where('grade_level', $request->grade_level);
         }
 
-        $activeSy = $request->input('school_year', session('admin_school_year'));
+        $activeSy = app(\App\Services\SchoolYearService::class)->current();
         if ($activeSy && preg_match('/^\d{4}-\d{4}$/', (string) $activeSy)) {
             $query->where('school_year', $activeSy);
         }

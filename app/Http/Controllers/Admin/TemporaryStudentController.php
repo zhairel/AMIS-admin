@@ -18,8 +18,13 @@ class TemporaryStudentController extends Controller
     public function index(Request $request)
     {
         $gradeOrder = ['Kinder 1', 'Kinder 2', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
+        $activeSy = app(\App\Services\SchoolYearService::class)->current();
 
-        $applyFilters = function ($query) use ($request) {
+        $applyFilters = function ($query) use ($request, $activeSy) {
+            if ($activeSy && preg_match('/^\d{4}-\d{4}$/', (string) $activeSy)) {
+                $query->where('students.school_year', $activeSy);
+            }
+
             // Temporary accounts filter
             $query->where(function ($q) {
                 $q->whereHas('applicant', function ($a) {
@@ -171,14 +176,16 @@ class TemporaryStudentController extends Controller
         }
 
         // Stats calculation for telemetry
-        $tempBase = Student::whereNull('deleted_at')->where(function ($q) {
-            $q->whereHas('applicant', function ($a) {
-                $a->where('last_name', 'like', '%[TEMP%')
-                  ->orWhere('first_name', 'like', '%[TEMP%');
-            })->orWhereHas('user', function ($u) {
-                $u->where('name', 'like', '%[TEMP%');
-            })->orWhere('school_email', 'like', '%temp%');
-        });
+        $tempBase = Student::whereNull('deleted_at')
+            ->when($activeSy && preg_match('/^\d{4}-\d{4}$/', (string) $activeSy), fn ($q) => $q->where('students.school_year', $activeSy))
+            ->where(function ($q) {
+                $q->whereHas('applicant', function ($a) {
+                    $a->where('last_name', 'like', '%[TEMP%')
+                      ->orWhere('first_name', 'like', '%[TEMP%');
+                })->orWhereHas('user', function ($u) {
+                    $u->where('name', 'like', '%[TEMP%');
+                })->orWhere('school_email', 'like', '%temp%');
+            });
 
         $totalTemp = (clone $tempBase)->count();
         $f2fTemp = (clone $tempBase)->whereHas('applicant', function ($q) {
@@ -209,6 +216,7 @@ class TemporaryStudentController extends Controller
         $passwordByGrade = DB::table('students')
             ->leftJoin('enrollment_applicants', 'enrollment_applicants.id', '=', 'students.enrollment_applicant_id')
             ->whereNull('students.deleted_at')
+            ->when($activeSy && preg_match('/^\d{4}-\d{4}$/', (string) $activeSy), fn ($q) => $q->where('students.school_year', $activeSy))
             ->where(function ($q) {
                 $q->where('enrollment_applicants.last_name', 'like', '%[TEMP%')
                   ->orWhere('enrollment_applicants.first_name', 'like', '%[TEMP%')

@@ -31,7 +31,9 @@ class StudentExportController extends Controller
             }
         }
 
-        $query = Student::with(['applicant.user', 'studentSection.section']);
+        $activeSy = app(\App\Services\SchoolYearService::class)->current();
+        $query = Student::with(['applicant.user', 'studentSection.section'])
+            ->when($activeSy && preg_match('/^\d{4}-\d{4}$/', (string) $activeSy), fn ($q) => $q->where('students.school_year', $activeSy));
 
         if ($isTeacherAdminViewer) {
             $teacherGradeScope === null
@@ -171,7 +173,9 @@ class StudentExportController extends Controller
             'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12',
         ];
 
+        $activeSy = app(\App\Services\SchoolYearService::class)->current();
         $students = Student::with('applicant')
+            ->when($activeSy && preg_match('/^\d{4}-\d{4}$/', (string) $activeSy), fn ($q) => $q->where('students.school_year', $activeSy))
             ->when(auth()->user()?->isTeacherAdminViewer(), fn ($q) => $q->whereIn('grade_level', auth()->user()->adminVisibleGradeLevels())
             )
             ->whereHas('applicant')
@@ -276,7 +280,13 @@ class StudentExportController extends Controller
             }
         }
 
-        $applyFilters = function ($query) use ($request, $isTeacherAdminViewer, $teacherGradeScope) {
+        $activeSy = app(\App\Services\SchoolYearService::class)->current();
+
+        $applyFilters = function ($query) use ($request, $isTeacherAdminViewer, $teacherGradeScope, $activeSy) {
+            if ($activeSy && preg_match('/^\d{4}-\d{4}$/', (string) $activeSy)) {
+                $query->where('students.school_year', $activeSy);
+            }
+
             if ($isTeacherAdminViewer) {
                 $teacherGradeScope === null
                     ? $query->whereRaw('1 = 0')
@@ -468,7 +478,13 @@ class StudentExportController extends Controller
             }
         }
 
-        $applyFilters = function ($query) use ($request, $isTeacherAdminViewer, $teacherGradeScope) {
+        $activeSy = app(\App\Services\SchoolYearService::class)->current();
+
+        $applyFilters = function ($query) use ($request, $isTeacherAdminViewer, $teacherGradeScope, $activeSy) {
+            if ($activeSy && preg_match('/^\d{4}-\d{4}$/', (string) $activeSy)) {
+                $query->where('students.school_year', $activeSy);
+            }
+
             if ($isTeacherAdminViewer) {
                 $teacherGradeScope === null
                     ? $query->whereRaw('1 = 0')
@@ -636,7 +652,9 @@ class StudentExportController extends Controller
             'search' => 'nullable|string',
         ]);
 
-        $query = Student::query();
+        $activeSy = app(\App\Services\SchoolYearService::class)->current();
+        $query = Student::query()
+            ->when($activeSy && preg_match('/^\d{4}-\d{4}$/', (string) $activeSy), fn ($q) => $q->where('students.school_year', $activeSy));
 
         if ($request->filled('grade')) {
             $query->where('grade_level', $request->grade);

@@ -123,11 +123,12 @@ class ApplicantController extends Controller
             'approvedCount' => $countQuery()->where('status', 'approved')->count(),
             'reviewQueueCount' => $countQuery()->whereIn('status', ['ready_for_submission', 'pending', 'submitted', 'under_review'])->count(),
             'rejectedCount' => $countQuery()->where('status', 'rejected')->count(),
-            'duplicateCount' => (function () {
+            'duplicateCount' => (function () use ($schoolYear) {
                 // Count applicants that share the same first_name + last_name + date_of_birth
                 // (read-only — no edits or deletes)
                 return EnrollmentApplicant::query()
                     ->whereNotIn('status', ['draft'])
+                    ->when($schoolYear, fn ($q) => $q->where('school_year', $schoolYear))
                     ->whereNotNull('date_of_birth')
                     ->selectRaw('LOWER(TRIM(first_name)) as fn, LOWER(TRIM(last_name)) as ln, date_of_birth, COUNT(*) as cnt')
                     ->groupByRaw('LOWER(TRIM(first_name)), LOWER(TRIM(last_name)), date_of_birth')

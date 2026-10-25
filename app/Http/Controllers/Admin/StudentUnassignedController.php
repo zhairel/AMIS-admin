@@ -22,8 +22,11 @@ class StudentUnassignedController extends Controller
         $genderFilter = $request->input('gender');
         $search = trim((string) $request->input('search', ''));
 
+        $activeSy = app(\App\Services\SchoolYearService::class)->current();
+
         // Base query for unassigned students (section is null or empty)
         $query = Student::with(['applicant.user', 'studentSection.section'])
+            ->when($activeSy && preg_match('/^\d{4}-\d{4}$/', (string) $activeSy), fn ($q) => $q->where('students.school_year', $activeSy))
             ->where(function ($q) {
                 $q->whereNull('students.section')
                   ->orWhere('students.section', '');
@@ -87,9 +90,10 @@ class StudentUnassignedController extends Controller
             ->withQueryString();
 
         // Overall Unassigned Stats
-        $baseUnassigned = Student::where(function ($q) {
-            $q->whereNull('section')->orWhere('section', '');
-        });
+        $baseUnassigned = Student::when($activeSy && preg_match('/^\d{4}-\d{4}$/', (string) $activeSy), fn ($q) => $q->where('students.school_year', $activeSy))
+            ->where(function ($q) {
+                $q->whereNull('section')->orWhere('section', '');
+            });
 
         $totalUnassigned = (clone $baseUnassigned)->count();
         
@@ -104,7 +108,8 @@ class StudentUnassignedController extends Controller
         })->count();
 
         // Counts per grade for ODL
-        $odlByGrade = Student::where(function ($q) {
+        $odlByGrade = Student::when($activeSy && preg_match('/^\d{4}-\d{4}$/', (string) $activeSy), fn ($q) => $q->where('students.school_year', $activeSy))
+            ->where(function ($q) {
                 $q->whereNull('section')->orWhere('section', '');
             })
             ->whereHas('applicant', function ($q) {
@@ -123,6 +128,7 @@ class StudentUnassignedController extends Controller
 
         // Formatted Text for Group Chat
         $allUnassignedOdl = Student::with('applicant')
+            ->when($activeSy && preg_match('/^\d{4}-\d{4}$/', (string) $activeSy), fn ($q) => $q->where('students.school_year', $activeSy))
             ->where(function ($q) {
                 $q->whereNull('section')->orWhere('section', '');
             })
@@ -257,7 +263,9 @@ class StudentUnassignedController extends Controller
         $modeFilter = $request->input('mode', 'odl');
         $gradeFilter = $request->input('grade');
 
+        $activeSy = app(\App\Services\SchoolYearService::class)->current();
         $query = Student::with('applicant')
+            ->when($activeSy && preg_match('/^\d{4}-\d{4}$/', (string) $activeSy), fn ($q) => $q->where('students.school_year', $activeSy))
             ->where(function ($q) {
                 $q->whereNull('section')->orWhere('section', '');
             });

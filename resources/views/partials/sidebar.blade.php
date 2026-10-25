@@ -261,12 +261,12 @@
                     @endif
                 </div>
 
-                <form method="POST" action="{{ route('admin.set-school-year') }}" class="view-only-allowed m-0">
+                <form method="POST" action="{{ route('admin.set-school-year') }}" class="view-only-allowed m-0" id="sidebarSchoolYearForm">
                     @csrf
                     <input type="hidden" name="return_url" value="{{ request()->fullUrl() }}">
                     <div class="relative">
                         <select name="school_year" 
-                                onchange="this.form.submit()" 
+                                onchange="try { var u = new URL(window.location.href); u.searchParams.set('school_year', this.value); window.location.href = u.toString(); } catch (e) { this.form.submit(); }" 
                                 title="Filter records by School Year"
                                 class="w-full appearance-none rounded-lg border border-slate-250 bg-white py-1.5 pl-2.5 pr-7 text-xs font-bold text-slate-800 shadow-2xs transition hover:border-emerald-400 focus:border-emerald-500 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 dark:border-gray-600 dark:bg-gray-700 dark:text-slate-100 cursor-pointer">
                             @foreach ($availableSchoolYears as $syOption)

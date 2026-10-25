@@ -69,7 +69,7 @@ class ApplicationQuery
         $query = EnrollmentApplicant::with('user', 'payment', 'student')
             ->whereNotIn('enrollment_applicants.status', ['draft']);
 
-        $schoolYear = $request->input('school_year', session('admin_school_year'));
+        $schoolYear = app(\App\Services\SchoolYearService::class)->current();
         if ($schoolYear && preg_match('/^\d{4}-\d{4}$/', (string) $schoolYear)) {
             $query->where('enrollment_applicants.school_year', $schoolYear);
         }
@@ -293,7 +293,7 @@ class ApplicationQuery
         $query = EnrollmentApplicant::with('user', 'payment')
             ->whereNotIn('status', ['draft']);
 
-        $schoolYear = $request->input('school_year', session('admin_school_year'));
+        $schoolYear = app(\App\Services\SchoolYearService::class)->current();
         if ($schoolYear && preg_match('/^\d{4}-\d{4}$/', (string) $schoolYear)) {
             $query->where('school_year', $schoolYear);
         }

@@ -18,7 +18,10 @@ class StudentArchiveController extends Controller
         $modeFilter = $request->input('mode');
         $search = trim((string) $request->input('search', ''));
 
+        $activeSy = app(\App\Services\SchoolYearService::class)->current();
+
         $query = Student::onlyTrashed()
+            ->when($activeSy && preg_match('/^\d{4}-\d{4}$/', (string) $activeSy), fn ($q) => $q->where('students.school_year', $activeSy))
             ->with(['applicant.user', 'studentSection.section']);
 
         if (!empty($gradeFilter)) {
@@ -57,9 +60,12 @@ class StudentArchiveController extends Controller
             ->paginate(25)
             ->withQueryString();
 
-        $totalArchived = Student::onlyTrashed()->count();
+        $totalArchived = Student::onlyTrashed()
+            ->when($activeSy && preg_match('/^\d{4}-\d{4}$/', (string) $activeSy), fn ($q) => $q->where('students.school_year', $activeSy))
+            ->count();
 
         $archivedByGrade = Student::onlyTrashed()
+            ->when($activeSy && preg_match('/^\d{4}-\d{4}$/', (string) $activeSy), fn ($q) => $q->where('students.school_year', $activeSy))
             ->select('grade_level', DB::raw('count(*) as count'))
             ->groupBy('grade_level')
             ->pluck('count', 'grade_level')

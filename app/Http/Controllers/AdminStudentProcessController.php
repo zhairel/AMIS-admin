@@ -14,8 +14,10 @@ class AdminStudentProcessController extends Controller
     public function accounts(Request $request)
     {
         $statusFilter = $request->input('status_filter', 'all');
+        $activeSy = app(\App\Services\SchoolYearService::class)->current();
 
-        $query = Student::with(['applicant.payment', 'studentSection.section', 'applicant.user']);
+        $query = Student::with(['applicant.payment', 'studentSection.section', 'applicant.user'])
+            ->when($activeSy && preg_match('/^\d{4}-\d{4}$/', (string) $activeSy), fn ($q) => $q->where('students.school_year', $activeSy));
 
         if ($request->filled('search')) {
             $s = $request->search;
@@ -82,8 +84,8 @@ class AdminStudentProcessController extends Controller
 
         $students = $query->latest('students.created_at')->paginate(20);
 
-        $totalCount = Student::count();
-        $completedCount = Student::where($completedScope)->count();
+        $totalCount = Student::when($activeSy && preg_match('/^\d{4}-\d{4}$/', (string) $activeSy), fn ($q) => $q->where('students.school_year', $activeSy))->count();
+        $completedCount = Student::when($activeSy && preg_match('/^\d{4}-\d{4}$/', (string) $activeSy), fn ($q) => $q->where('students.school_year', $activeSy))->where($completedScope)->count();
 
         $stats = [
             'total' => $totalCount,
@@ -103,7 +105,9 @@ class AdminStudentProcessController extends Controller
 
     public function documents(Request $request)
     {
-        $query = Student::with(['applicant', 'applicant.user']);
+        $activeSy = app(\App\Services\SchoolYearService::class)->current();
+        $query = Student::with(['applicant', 'applicant.user'])
+            ->when($activeSy && preg_match('/^\d{4}-\d{4}$/', (string) $activeSy), fn ($q) => $q->where('students.school_year', $activeSy));
         if ($request->filled('search')) {
             $s = $request->search;
             $query->where(function ($q) use ($s) {
@@ -120,7 +124,9 @@ class AdminStudentProcessController extends Controller
 
     public function verification(Request $request)
     {
-        $query = Student::with(['applicant', 'applicant.user']);
+        $activeSy = app(\App\Services\SchoolYearService::class)->current();
+        $query = Student::with(['applicant', 'applicant.user'])
+            ->when($activeSy && preg_match('/^\d{4}-\d{4}$/', (string) $activeSy), fn ($q) => $q->where('students.school_year', $activeSy));
         if ($request->filled('search')) {
             $s = $request->search;
             $query->where(function ($q) use ($s) {
@@ -170,7 +176,9 @@ class AdminStudentProcessController extends Controller
 
     public function promotions(Request $request)
     {
-        $query = Student::with(['applicant', 'applicant.user']);
+        $activeSy = app(\App\Services\SchoolYearService::class)->current();
+        $query = Student::with(['applicant', 'applicant.user'])
+            ->when($activeSy && preg_match('/^\d{4}-\d{4}$/', (string) $activeSy), fn ($q) => $q->where('students.school_year', $activeSy));
         if ($request->filled('search')) {
             $s = $request->search;
             $query->where(function ($q) use ($s) {
