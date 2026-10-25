@@ -38,10 +38,26 @@ class StudentDashboardController extends Controller
             'ms_synced' => $msSynced,
             'passwords_changed' => $studentBase()->whereNotNull('password_changed_at')->count(),
             'total_sections' => Section::count(),
-            'allocated_slots' => StudentSection::count(),
+            'allocated_slots' => StudentSection::query()
+                ->when($activeSy && preg_match('/^\d{4}-\d{4}$/', (string) $activeSy), function ($q) use ($activeSy) {
+                    $q->whereHas('student', fn ($sq) => $sq->where('students.school_year', $activeSy));
+                })->count(),
         ];
 
-        $sections = Section::with(['students.student.applicant'])->withCount('students')->get()->map(function ($section) {
+        $sections = Section::with([
+            'students' => function ($q) use ($activeSy) {
+                $q->when($activeSy && preg_match('/^\d{4}-\d{4}$/', (string) $activeSy), function ($sq) use ($activeSy) {
+                    $sq->whereHas('student', fn ($ssq) => $ssq->where('students.school_year', $activeSy));
+                })->with(['student.applicant']);
+            },
+            'activeAdvisory.user',
+        ])->withCount([
+            'students' => function ($q) use ($activeSy) {
+                $q->when($activeSy && preg_match('/^\d{4}-\d{4}$/', (string) $activeSy), function ($sq) use ($activeSy) {
+                    $sq->whereHas('student', fn ($ssq) => $ssq->where('students.school_year', $activeSy));
+                });
+            }
+        ])->get()->map(function ($section) {
             $isF2f = str_contains(strtolower((string) $section->learning_mode), 'face') ||
                      str_contains(strtolower((string) $section->learning_mode), 'f2f') ||
                      strtoupper((string) $section->shift) === 'F2F';

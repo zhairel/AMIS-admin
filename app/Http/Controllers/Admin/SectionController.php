@@ -16,8 +16,23 @@ class SectionController extends Controller
         $mode = $request->query('mode');
         $grade = $request->query('grade');
 
-        $query = Section::withCount('students')
-            ->with(['activeAdvisory.user', 'coAdvisors.user', 'students.student.applicant']);
+        $activeSy = app(\App\Services\SchoolYearService::class)->current();
+
+        $query = Section::withCount([
+            'students' => function ($q) use ($activeSy) {
+                $q->when($activeSy && preg_match('/^\d{4}-\d{4}$/', (string) $activeSy), function ($sq) use ($activeSy) {
+                    $sq->whereHas('student', fn ($ssq) => $ssq->where('students.school_year', $activeSy));
+                });
+            }
+        ])->with([
+            'activeAdvisory.user',
+            'coAdvisors.user',
+            'students' => function ($q) use ($activeSy) {
+                $q->when($activeSy && preg_match('/^\d{4}-\d{4}$/', (string) $activeSy), function ($sq) use ($activeSy) {
+                    $sq->whereHas('student', fn ($ssq) => $ssq->where('students.school_year', $activeSy));
+                })->with(['student.applicant']);
+            }
+        ]);
 
         if (!empty($search)) {
             $query->where(function ($q) use ($search) {
